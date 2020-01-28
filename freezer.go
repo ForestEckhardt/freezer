@@ -8,7 +8,9 @@ import (
 )
 
 type CacheManager struct {
-	CacheDir    string
+	CacheDir string
+	Cache    CacheDB
+
 	cacheDBPath string
 }
 
@@ -26,22 +28,35 @@ func NewCacheManager(cacheDir string) CacheManager {
 	}
 }
 
-func (c CacheManager) Load() (CacheDB, error) {
+func (c *CacheManager) Load() error {
 	file, err := os.Open(c.cacheDBPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return CacheDB{}, nil
+			return nil
 		}
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
-	var cacheDB CacheDB
-	gobDecoder := gob.NewDecoder(file)
-	err = gobDecoder.Decode(&cacheDB)
+	err = gob.NewDecoder(file).Decode(&c.Cache)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	return cacheDB, nil
+	return nil
+}
+
+func (c CacheManager) Save() error {
+	file, err := os.OpenFile(c.cacheDBPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = gob.NewEncoder(file).Encode(&c.Cache)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
