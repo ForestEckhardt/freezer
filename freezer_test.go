@@ -18,29 +18,25 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 
-		tempDir     string
-		cacheDBFile string
+		cacheDir string
 
 		cacheManager freezer.CacheManager
 	)
 
 	it.Before(func() {
 		var err error
-		tempDir, err = ioutil.TempDir("", "cache")
+		cacheDir, err = ioutil.TempDir("", "cache")
 		Expect(err).ToNot(HaveOccurred())
 
-		cacheDBFile = filepath.Join(tempDir, "buildpacks-cache.db")
-
-		cacheManager = freezer.NewCacheManager(tempDir)
-		Expect(cacheManager.CacheDir).To(Equal(tempDir))
+		cacheManager = freezer.NewCacheManager(cacheDir)
 	})
 
 	it.After(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		Expect(os.RemoveAll(cacheDir)).To(Succeed())
 	})
 
-	context("Load", func() {
-		context("when Load is called on the cache manager and there is a buildpacks-cache.db file present", func() {
+	context("Open", func() {
+		context("when Open is called on the cache manager and there is a buildpacks-cache.db file present", func() {
 			var inputMap freezer.CacheDB
 
 			it.Before(func() {
@@ -50,20 +46,20 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 				err := gob.NewEncoder(b).Encode(&inputMap)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(ioutil.WriteFile(cacheDBFile, b.Bytes(), os.ModePerm))
+				Expect(ioutil.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), b.Bytes(), os.ModePerm))
 			})
 
 			it("returns the cache map stored in the buildpacks-cache.db folder", func() {
-				err := cacheManager.Load()
+				err := cacheManager.Open()
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(cacheManager.Cache).To(Equal(inputMap))
 			})
 		})
 
-		context("when Load is called on the cache manager and there is no buildpacks-cache.db file present", func() {
+		context("when Open is called on the cache manager and there is no buildpacks-cache.db file present", func() {
 			it("returns an empty cache map", func() {
-				err := cacheManager.Load()
+				err := cacheManager.Open()
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(cacheManager.Cache).To(BeNil())
@@ -71,64 +67,63 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 		})
 
 		context("failure cases", func() {
-			context("unable to open the buildpack-cache.db", func() {
+			context("the buildpacks-cache.db file is unable to be created", func() {
 				it.Before(func() {
-					Expect(ioutil.WriteFile(cacheDBFile, []byte{}, 0000))
+					Expect(os.Chmod(cacheDir, 0222)).To(Succeed())
 				})
+
+				it.After(func() {
+					Expect(os.Chmod(cacheDir, os.ModePerm)).To(Succeed())
+				})
+
 				it("returns an error", func() {
-					err := cacheManager.Load()
+					err := cacheManager.Open()
 					Expect(err).To(MatchError(ContainSubstring("permission denied")))
 				})
 			})
 
 			context("unable to open the buildpack-cache.db", func() {
 				it.Before(func() {
-					Expect(ioutil.WriteFile(cacheDBFile, []byte(`%%%`), os.ModePerm))
+					Expect(ioutil.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), []byte{}, 0000))
 				})
 				it("returns an error", func() {
-					err := cacheManager.Load()
+					err := cacheManager.Open()
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
+			context("unable to open the buildpack-cache.db", func() {
+				it.Before(func() {
+					Expect(ioutil.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), []byte(`%%%`), os.ModePerm))
+				})
+				it("returns an error", func() {
+					err := cacheManager.Open()
 					Expect(err).To(MatchError(ContainSubstring("unexpected EOF")))
 				})
 			})
 		})
 	})
 
-	context("Save", func() {
-		context("when Save is called on the cache manager", func() {
+	context("Close", func() {
+		context("when Close is called on the cache manager", func() {
 			it.Before(func() {
+				err := cacheManager.Open()
+				Expect(err).ToNot(HaveOccurred())
 				cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: "some-uri"}}
 			})
 
 			it("saves the cache map given", func() {
-				err := cacheManager.Save()
+				err := cacheManager.Close()
 				Expect(err).ToNot(HaveOccurred())
 
 				var cacheCheck freezer.CacheDB
-				file, err := os.Open(cacheDBFile)
+				file, err := os.Open(filepath.Join(cacheDir, "buildpacks-cache.db"))
 				Expect(err).ToNot(HaveOccurred())
 
 				err = gob.NewDecoder(file).Decode(&cacheCheck)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(cacheCheck).To(Equal(cacheManager.Cache))
-			})
-		})
-
-		context("failure cases", func() {
-			context("the db file cannot be created or opened", func() {
-				it.Before(func() {
-					Expect(os.Chmod(tempDir, 0000)).To(Succeed())
-					cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: "some-uri"}}
-				})
-
-				it.After(func() {
-					Expect(os.Chmod(tempDir, os.ModePerm)).To(Succeed())
-				})
-
-				it("returns an error", func() {
-					err := cacheManager.Save()
-					Expect(err).To(MatchError(ContainSubstring("permission denied")))
-				})
 			})
 		})
 	})

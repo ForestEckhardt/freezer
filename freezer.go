@@ -8,10 +8,10 @@ import (
 )
 
 type CacheManager struct {
-	CacheDir string
-	Cache    CacheDB
+	Cache CacheDB
 
-	cacheDBPath string
+	cacheDir string
+	dbFile   *os.File
 }
 
 type CacheDB map[string]CacheEntry
@@ -23,22 +23,30 @@ type CacheEntry struct {
 
 func NewCacheManager(cacheDir string) CacheManager {
 	return CacheManager{
-		CacheDir:    cacheDir,
-		cacheDBPath: filepath.Join(cacheDir, "buildpacks-cache.db"),
+		cacheDir: cacheDir,
 	}
 }
 
-func (c *CacheManager) Load() error {
-	file, err := os.Open(c.cacheDBPath)
+func (c *CacheManager) Open() error {
+	var err error
+	_, err = os.Stat(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			c.dbFile, err = os.OpenFile(filepath.Join(c.cacheDir, "buildpacks-cache.db"), os.O_RDWR|os.O_CREATE, 0666)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		return err
 	}
-	defer file.Close()
 
-	err = gob.NewDecoder(file).Decode(&c.Cache)
+	c.dbFile, err = os.Open(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
+	if err != nil {
+		return err
+	}
+
+	err = gob.NewDecoder(c.dbFile).Decode(&c.Cache)
 	if err != nil {
 		return err
 	}
@@ -46,17 +54,12 @@ func (c *CacheManager) Load() error {
 	return nil
 }
 
-func (c CacheManager) Save() error {
-	file, err := os.OpenFile(c.cacheDBPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+func (c CacheManager) Close() error {
+	err := gob.NewEncoder(c.dbFile).Encode(&c.Cache)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-
-	err = gob.NewEncoder(file).Encode(&c.Cache)
-	if err != nil {
-		return err
-	}
+	defer c.dbFile.Close()
 
 	return nil
 }
