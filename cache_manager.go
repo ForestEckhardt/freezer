@@ -8,10 +8,10 @@ import (
 )
 
 type CacheManager struct {
-	Cache CacheDB
+	Cache    CacheDB
+	CacheDir string
 
-	cacheDir string
-	dbFile   *os.File
+	dbFile *os.File
 }
 
 type CacheDB map[string]CacheEntry
@@ -23,16 +23,16 @@ type CacheEntry struct {
 
 func NewCacheManager(cacheDir string) CacheManager {
 	return CacheManager{
-		cacheDir: cacheDir,
+		CacheDir: cacheDir,
 	}
 }
 
 func (c *CacheManager) Open() error {
 	var err error
-	_, err = os.Stat(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
+	_, err = os.Stat(filepath.Join(c.CacheDir, "buildpacks-cache.db"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			c.dbFile, err = os.OpenFile(filepath.Join(c.cacheDir, "buildpacks-cache.db"), os.O_RDWR|os.O_CREATE, 0666)
+			c.dbFile, err = os.OpenFile(filepath.Join(c.CacheDir, "buildpacks-cache.db"), os.O_RDWR|os.O_CREATE, 0666)
 			if err != nil {
 				return err
 			}
@@ -41,7 +41,7 @@ func (c *CacheManager) Open() error {
 		return err
 	}
 
-	c.dbFile, err = os.Open(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
+	c.dbFile, err = os.Open(filepath.Join(c.CacheDir, "buildpacks-cache.db"))
 	if err != nil {
 		return err
 	}
