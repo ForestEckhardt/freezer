@@ -138,6 +138,10 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 		})
 
 		context("when there is no cache entry", func() {
+			it.Before(func() {
+				Expect(cacheManager.Open()).To(Succeed())
+			})
+
 			it("keeps the latest buildpack", func() {
 				err := remoteBuildpack.Get()
 				Expect(err).ToNot(HaveOccurred())
@@ -174,6 +178,16 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
+			context("transport drop fails", func() {
+				it.Before(func() {
+					transport.DropCall.Returns.Error = errors.New("drop failed")
+				})
+
+				it("returns an error", func() {
+					err := remoteBuildpack.Get()
+					Expect(err).To(MatchError("drop failed"))
+				})
+			})
 		})
 	})
 }

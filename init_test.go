@@ -8,7 +8,7 @@ import (
 )
 
 func TestFreezer(t *testing.T) {
-	suite := spec.New("vacation", spec.Report(report.Terminal{}))
+	suite := spec.New("freezer", spec.Report(report.Terminal{}))
 	suite("CacheManager", testCacheManager)
 	suite("RemoteBuildpack", testRemoteBuildpack)
 	suite.Run(t)

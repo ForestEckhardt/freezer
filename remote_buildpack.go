@@ -9,6 +9,8 @@ import (
 	"github.com/ForestEckhardt/freezer/github"
 )
 
+//Fetecher
+
 //go:generate faux --interface GitReleaseFetcher --output fakes/git_release_fetcher.go
 type GitReleaseFetcher interface {
 	Get(org, repo string) (github.Release, error)
@@ -23,6 +25,7 @@ type RemoteBuildpack struct {
 	org               string
 	repo              string
 	cacheManager      *CacheManager
+	cacheKey          string
 	gitReleaseFetcher GitReleaseFetcher
 	transport         Transport
 }
@@ -32,6 +35,7 @@ func NewRemoteBuildpack(org, repo string, cacheManager *CacheManager, gitRelease
 		org:               org,
 		repo:              repo,
 		cacheManager:      cacheManager,
+		cacheKey:          fmt.Sprintf("%s:%s", org, repo),
 		gitReleaseFetcher: gitReleaseFetcher,
 		transport:         transport,
 	}
@@ -44,35 +48,28 @@ func (r RemoteBuildpack) Get() error {
 	}
 
 	if len(release.Assets) != 1 {
+		//TODO: this will download the repo and build from source
 		panic("special error")
 	}
 
-	cacheKey := fmt.Sprintf("%s:%s", r.org, r.repo)
+	cachedEntry, exist := r.cacheManager.Get(r.cacheKey)
 
-	cachedEntry, exist := r.cacheManager.Cache[cacheKey]
-
-	if !exist {
-		err := os.MkdirAll(filepath.Join(r.cacheManager.CacheDir, r.org, r.repo), os.ModePerm)
-		if err != nil {
-			panic(err)
-		}
-
-		r.cacheManager.Cache = CacheDB{
-			cacheKey: CacheEntry{},
-		}
-	}
-
-	if release.TagName != cachedEntry.Version {
+	if release.TagName != cachedEntry.Version || !exist {
 		bundle, err := r.transport.Drop("", release.Assets[0].BrowserDownloadURL)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
-		path := filepath.Join(r.cacheManager.CacheDir, r.org, r.repo, fmt.Sprintf("%s.tgz", release.TagName))
+		path := filepath.Join(r.cacheManager.cacheDir, r.org, r.repo, fmt.Sprintf("%s.tgz", release.TagName))
+
+		err = os.MkdirAll(filepath.Join(r.cacheManager.cacheDir, r.org, r.repo), os.ModePerm)
+		if err != nil {
+			return err
+		}
 
 		file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer file.Close()
 
@@ -81,12 +78,14 @@ func (r RemoteBuildpack) Get() error {
 			return err
 		}
 
-		r.cacheManager.Cache[cacheKey] = CacheEntry{
+		err = r.cacheManager.Set(r.cacheKey, CacheEntry{
 			Version: release.TagName,
 			URI:     path,
-		}
+		})
 
-		os.RemoveAll(cachedEntry.URI)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

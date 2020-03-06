@@ -62,7 +62,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 				err := cacheManager.Open()
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(cacheManager.Cache).To(BeNil())
+				Expect(cacheManager.Cache).To(Equal(freezer.CacheDB{}))
 			})
 		})
 
@@ -124,6 +124,81 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(cacheCheck).To(Equal(cacheManager.Cache))
+			})
+		})
+	})
+
+	context("Get", func() {
+		it.Before(func() {
+			err := cacheManager.Open()
+			Expect(err).ToNot(HaveOccurred())
+			cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: "some-uri"}}
+		})
+
+		context("when the key exists", func() {
+			it("returns the entry and ok", func() {
+				entry, ok := cacheManager.Get("some-buildpack")
+				Expect(ok).To(BeTrue())
+				Expect(entry).To(Equal(freezer.CacheEntry{Version: "1.2.3", URI: "some-uri"}))
+			})
+		})
+		context("when the does not key exist", func() {
+			it("returns with an empty entry and not ok", func() {
+				entry, ok := cacheManager.Get("some-buildpack-other")
+				Expect(ok).To(BeFalse())
+				Expect(entry).To(Equal(freezer.CacheEntry{}))
+			})
+		})
+	})
+
+	context("Set", func() {
+		var uri string
+
+		it.Before(func() {
+			err := cacheManager.Open()
+			Expect(err).ToNot(HaveOccurred())
+
+			uri = filepath.Join(cacheDir, "some-file")
+
+			Expect(ioutil.WriteFile(uri, []byte(`some content`), 0644)).To(Succeed())
+
+			cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: uri}}
+		})
+
+		context("when there is an already existing entry", func() {
+			it("deletes the previous file and sets the new information", func() {
+				err := cacheManager.Set("some-buildpack", freezer.CacheEntry{Version: "1.2.4", URI: "some-uri"})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(uri).NotTo(BeAnExistingFile())
+				Expect(cacheManager.Cache["some-buildpack"]).To(Equal(freezer.CacheEntry{Version: "1.2.4", URI: "some-uri"}))
+			})
+		})
+
+		context("when there is not an already existing entry", func() {
+			it("deletes the previous file and sets the new information", func() {
+				err := cacheManager.Set("some-buildpack-other", freezer.CacheEntry{Version: "1.2.4", URI: "some-uri"})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(uri).To(BeAnExistingFile())
+				Expect(cacheManager.Cache["some-buildpack-other"]).To(Equal(freezer.CacheEntry{Version: "1.2.4", URI: "some-uri"}))
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the previous entry file cannot be removed", func() {
+				it.Before(func() {
+					Expect(os.Chmod(cacheDir, 0000)).To(Succeed())
+				})
+
+				it.After(func() {
+					Expect(os.Chmod(cacheDir, os.ModePerm)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					err := cacheManager.Set("some-buildpack", freezer.CacheEntry{Version: "1.2.4", URI: "some-uri"})
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
 			})
 		})
 	})
