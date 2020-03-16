@@ -16,16 +16,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
+func testUncachedRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 
 		cacheDir string
 
-		gitReleaseFetcher *fakes.GitReleaseFetcher
-		transport         *fakes.Transport
-		cacheManager      freezer.CacheManager
-		remoteBuildpack   freezer.RemoteBuildpack
+		gitReleaseFetcher      *fakes.GitReleaseFetcher
+		transport              *fakes.Transport
+		cacheManager           freezer.CacheManager
+		remoteBuildpack        freezer.RemoteBuildpack
+		jamPackager            *fakes.JamPackager
+		remoteBuildpackFetcher freezer.UncachedRemoteFetcher
 	)
 
 	it.Before(func() {
@@ -49,9 +51,14 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 		buffer := bytes.NewBufferString("some content")
 		transport.DropCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
 
+		jamPackager = &fakes.JamPackager{}
+
 		cacheManager = freezer.NewCacheManager(cacheDir)
 
-		remoteBuildpack = freezer.NewRemoteBuildpack("some-org", "some-repo", &cacheManager, gitReleaseFetcher, transport)
+		remoteBuildpack = freezer.NewRemoteBuildpack("some-org", "some-repo")
+
+		remoteBuildpackFetcher = freezer.NewUncachedRemoteFetcher(&cacheManager, gitReleaseFetcher, transport, jamPackager)
+
 	})
 
 	it.After(func() {
@@ -75,7 +82,7 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("gets the latest buildpack", func() {
-				err := remoteBuildpack.Get()
+				err := remoteBuildpackFetcher.Get(remoteBuildpack)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -115,7 +122,7 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("keeps the latest buildpack", func() {
-				err := remoteBuildpack.Get()
+				err := remoteBuildpackFetcher.Get(remoteBuildpack)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -143,7 +150,7 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("keeps the latest buildpack", func() {
-				err := remoteBuildpack.Get()
+				err := remoteBuildpackFetcher.Get(remoteBuildpack)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -173,7 +180,7 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := remoteBuildpack.Get()
+					err := remoteBuildpackFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("unable to get release"))
 				})
 			})
@@ -184,7 +191,7 @@ func testRemoteBuildpack(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := remoteBuildpack.Get()
+					err := remoteBuildpackFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("drop failed"))
 				})
 			})

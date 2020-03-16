@@ -10,6 +10,6 @@ import (
 func TestFreezer(t *testing.T) {
 	suite := spec.New("freezer", spec.Report(report.Terminal{}))
 	suite("CacheManager", testCacheManager)
-	suite("RemoteBuildpack", testRemoteBuildpack)
+	suite("UncachedRemoteFetcher", testUncachedRemoteFetcher)
 	suite.Run(t)
 }
