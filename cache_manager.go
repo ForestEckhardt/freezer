@@ -73,7 +73,7 @@ func (c CacheManager) Get(key string) (CacheEntry, bool) {
 	return entry, ok
 }
 
-func (c CacheManager) Set(key string, value CacheEntry) error {
+func (c *CacheManager) Set(key string, value CacheEntry) error {
 	//os.RemoveAll of a empty string is a noop if the entry does not exist then it will
 	//return and empty string
 	err := os.RemoveAll(c.Cache[key].URI)
@@ -84,4 +84,8 @@ func (c CacheManager) Set(key string, value CacheEntry) error {
 	c.Cache[key] = value
 
 	return nil
+}
+
+func (c CacheManager) Dir() string {
+	return c.cacheDir
 }
