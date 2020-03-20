@@ -32,6 +32,10 @@ func (c *CacheManager) Open() error {
 	_, err = os.Stat(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			err = os.MkdirAll(c.cacheDir, os.ModePerm)
+			if err != nil {
+				return err
+			}
 			c.dbFile, err = os.OpenFile(filepath.Join(c.cacheDir, "buildpacks-cache.db"), os.O_RDWR|os.O_CREATE, 0666)
 			if err != nil {
 				return err
@@ -79,6 +83,10 @@ func (c *CacheManager) Set(key string, value CacheEntry) error {
 	err := os.RemoveAll(c.Cache[key].URI)
 	if err != nil {
 		return err
+	}
+
+	if c.Cache == nil {
+		return errors.New("The cache manager is not loaded properly")
 	}
 
 	c.Cache[key] = value
