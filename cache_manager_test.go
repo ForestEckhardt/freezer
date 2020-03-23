@@ -200,6 +200,18 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 					Expect(err).To(MatchError(ContainSubstring("permission denied")))
 				})
 			})
+
+			context("when the cache is nil meaning that the database has not been opened", func() {
+				it.Before(func() {
+					cacheManager.Cache = nil
+				})
+
+				it("returns an error", func() {
+					err := cacheManager.Set("some-buildpack", freezer.CacheEntry{Version: "1.2.4", URI: "some-uri"})
+					Expect(err).To(MatchError("the cache manager is not loaded properly"))
+
+				})
+			})
 		})
 	})
 }

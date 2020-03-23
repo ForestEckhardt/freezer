@@ -91,7 +91,7 @@ func (c *CacheManager) Set(key string, value CacheEntry) error {
 	}
 
 	if c.Cache == nil {
-		return errors.New("The cache manager is not loaded properly")
+		return errors.New("the cache manager is not loaded properly")
 	}
 
 	c.Cache[key] = value
