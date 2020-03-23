@@ -22,7 +22,7 @@ type Transport interface {
 
 //go:generate faux --interface Packager --output fakes/packager.go
 type Packager interface {
-	Execute(buildpackDir, output, version string) error
+	Execute(buildpackDir, output, version string, cached bool) error
 }
 
 //go:generate faux --interface BuildpackCache --output fakes/buildpack_cache.go
@@ -50,17 +50,23 @@ func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleas
 	}
 }
 
-func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack) (string, error) {
-	var path string
-
+func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string, error) {
 	release, err := r.gitReleaseFetcher.Get(remoteBuildpack.org, remoteBuildpack.repo)
 	if err != nil {
 		return "", err
 	}
 
 	buildpackCacheDir := filepath.Join(r.buildpackCache.Dir(), remoteBuildpack.org, remoteBuildpack.repo)
+	if cached {
+		buildpackCacheDir = filepath.Join(buildpackCacheDir, "cached")
+	}
 
-	cachedEntry, exist := r.buildpackCache.Get(remoteBuildpack.uncachedKey)
+	key := remoteBuildpack.uncachedKey
+	if cached {
+		key = remoteBuildpack.cachedKey
+	}
+
+	cachedEntry, exist := r.buildpackCache.Get(key)
 	if !exist {
 		err = os.MkdirAll(buildpackCacheDir, os.ModePerm)
 		if err != nil {
@@ -68,12 +74,12 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack) (string, error) {
 		}
 	}
 
-	path = cachedEntry.URI
+	path := cachedEntry.URI
 
-	missingReleaseArtifacts := !(len(release.Assets) > 0)
 	if release.TagName != cachedEntry.Version || !exist {
+		missingReleaseArtifacts := !(len(release.Assets) > 0)
 		var url string
-		if missingReleaseArtifacts {
+		if missingReleaseArtifacts || cached {
 			url = release.TarballURL
 		} else {
 			url = release.Assets[0].BrowserDownloadURL
@@ -86,7 +92,7 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack) (string, error) {
 
 		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", release.TagName))
 
-		if missingReleaseArtifacts {
+		if missingReleaseArtifacts || cached {
 			downloadDir, err := r.fileSystem.TempDir("", remoteBuildpack.repo)
 			if err != nil {
 				return "", err
@@ -113,7 +119,7 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack) (string, error) {
 				}
 			}
 
-			err = r.packager.Execute(downloadDir, path, release.TagName)
+			err = r.packager.Execute(downloadDir, path, release.TagName, cached)
 			if err != nil {
 				return "", err
 			}
@@ -131,7 +137,7 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack) (string, error) {
 			}
 		}
 
-		err = r.buildpackCache.Set(remoteBuildpack.uncachedKey, CacheEntry{
+		err = r.buildpackCache.Set(key, CacheEntry{
 			Version: release.TagName,
 			URI:     path,
 		})

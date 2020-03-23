@@ -35,6 +35,7 @@ func (s Stock) Execute(args []string) error {
 		cacheDir    string
 		gitEndpoint string
 		githubToken string
+		cached      bool
 	)
 
 	usr, err := user.Current()
@@ -48,6 +49,7 @@ func (s Stock) Execute(args []string) error {
 	fset.StringVar(&cacheDir, "cache-directory", filepath.Join(usr.HomeDir, ".freezer-cache"), "the location of the cache directory on disk (this will default to $HOME/.freezer-cache)")
 	fset.StringVar(&gitEndpoint, "git-endpoint", "https://api.github.com", "Git endpoint url")
 	fset.StringVar(&githubToken, "github-token", "", "Personal github token to prevent rate limiting")
+	fset.BoolVar(&cached, "cached", false, "builds a cached version of a buildpack is set to true")
 
 	err = fset.Parse(args)
 	if err != nil {
@@ -75,13 +77,20 @@ func (s Stock) Execute(args []string) error {
 	if err = cacheManager.Open(); err != nil {
 		panic(err)
 	}
-	defer cacheManager.Close()
+
 	githubReleaseService := github.NewReleaseService(github.NewConfig(gitEndpoint, githubToken))
 
 	fetcher := freezer.NewRemoteFetcher(&cacheManager, githubReleaseService, s.transport, s.packager, s.fileSystem)
 
-	uri, err := fetcher.Get(buildpack)
+	uri, err := fetcher.Get(buildpack, cached)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(uri)
 
-	return err
+	if err = cacheManager.Close(); err != nil {
+		panic(err)
+	}
+
+	return nil
 }

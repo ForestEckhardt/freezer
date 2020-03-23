@@ -36,7 +36,7 @@ func (c *CacheManager) Open() error {
 			if err != nil {
 				return err
 			}
-			c.dbFile, err = os.OpenFile(filepath.Join(c.cacheDir, "buildpacks-cache.db"), os.O_RDWR|os.O_CREATE, 0666)
+			c.dbFile, err = os.Create(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
 			if err != nil {
 				return err
 			}
@@ -46,12 +46,17 @@ func (c *CacheManager) Open() error {
 		return err
 	}
 
-	c.dbFile, err = os.Open(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
+	loadFile, err := os.Open(filepath.Join(c.cacheDir, "buildpacks-cache.db"))
 	if err != nil {
 		return err
 	}
 
-	err = gob.NewDecoder(c.dbFile).Decode(&c.Cache)
+	err = gob.NewDecoder(loadFile).Decode(&c.Cache)
+	if err != nil {
+		return err
+	}
+
+	c.dbFile, err = os.OpenFile(filepath.Join(c.cacheDir, "buildpacks-cache.db"), os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return err
 	}

@@ -96,44 +96,25 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 	context("Get", func() {
 		context("when the remote buildpack's version is in sync with github ", func() {
-			var buffer *bytes.Buffer
 			it.Before(func() {
 				buildpackCache.GetCall.Returns.CacheEntry = freezer.CacheEntry{
 					Version: "some-tag",
 					URI:     "keep-this-uri",
 				}
-
-				Expect(os.MkdirAll(filepath.Join(cacheDir, "some-org", "some-repo"), os.ModePerm)).To(Succeed())
-
-				buffer = bytes.NewBuffer(nil)
-				gw := gzip.NewWriter(buffer)
-				tw := tar.NewWriter(gw)
-
-				Expect(tw.WriteHeader(&tar.Header{Name: "some-file", Mode: 0755, Size: int64(len("some content"))})).To(Succeed())
-				_, err := tw.Write([]byte(`some content`))
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(tw.Close()).To(Succeed())
-				Expect(gw.Close()).To(Succeed())
 			})
 
 			it("keeps the latest buildpack", func() {
-				uri, err := remoteFetcher.Get(remoteBuildpack)
+				uri, err := remoteFetcher.Get(remoteBuildpack, false)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
 				Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
 
+				Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
+
 				Expect(transport.DropCall.CallCount).To(Equal(0))
 
 				Expect(buildpackCache.SetCall.CallCount).To(Equal(0))
-
-				err = vacation.NewTarGzipArchive(buffer).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
-				Expect(err).ToNot(HaveOccurred())
-
-				content, err := ioutil.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(Equal("some content"))
 
 				Expect(uri).To(Equal("keep-this-uri"))
 			})
@@ -149,32 +130,58 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			context("when there is a release artifact present", func() {
-				it("fetches the latest buildpack", func() {
-					uri, err := remoteFetcher.Get(remoteBuildpack)
-					Expect(err).ToNot(HaveOccurred())
+				context("when the resulting buildpack should be uncached", func() {
+					it("fetches the latest buildpack", func() {
+						uri, err := remoteFetcher.Get(remoteBuildpack, false)
+						Expect(err).ToNot(HaveOccurred())
 
-					Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
-					Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
+						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
+						Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
 
-					Expect(buildpackCache.GetCall.CallCount).To(Equal(1))
+						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
 
-					Expect(transport.DropCall.Receives.Root).To(Equal(""))
-					Expect(transport.DropCall.Receives.Uri).To(Equal("some-browser-download-url"))
+						Expect(transport.DropCall.Receives.Root).To(Equal(""))
+						Expect(transport.DropCall.Receives.Uri).To(Equal("some-browser-download-url"))
 
-					Expect(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")).To(BeAnExistingFile())
-					file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz"))
-					Expect(err).ToNot(HaveOccurred())
+						Expect(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")).To(BeAnExistingFile())
+						file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz"))
+						Expect(err).ToNot(HaveOccurred())
 
-					err = vacation.NewTarGzipArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
-					Expect(err).ToNot(HaveOccurred())
+						err = vacation.NewTarGzipArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
+						Expect(err).ToNot(HaveOccurred())
 
-					content, err := ioutil.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
-					Expect(err).NotTo(HaveOccurred())
-					Expect(string(content)).To(Equal("some content"))
+						content, err := ioutil.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
+						Expect(err).NotTo(HaveOccurred())
+						Expect(string(content)).To(Equal("some content"))
 
-					Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
+						Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
 
-					Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
+						Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
+					})
+				})
+
+				context("when the resulting buildpack should be cached", func() {
+					it("fetches and builds a cached version of the latest buildpack", func() {
+						uri, err := remoteFetcher.Get(remoteBuildpack, true)
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
+						Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
+
+						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo:cached"))
+
+						Expect(transport.DropCall.Receives.Root).To(Equal(""))
+						Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
+
+						Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
+						Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "cached", "some-tag.tgz")))
+						Expect(packager.ExecuteCall.Receives.Version).To(Equal("some-tag"))
+						Expect(packager.ExecuteCall.Receives.Cached).To(BeTrue())
+
+						Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
+
+						Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "cached", "some-tag.tgz")))
+					})
 				})
 			})
 
@@ -209,7 +216,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 					Expect(os.MkdirAll(filepath.Join(cacheDir, "some-org", "some-repo"), os.ModePerm)).To(Succeed())
 
-					packager.ExecuteCall.Stub = func(string, string, string) error {
+					packager.ExecuteCall.Stub = func(string, string, string, bool) error {
 						content, err := ioutil.ReadFile(filepath.Join(downloadDir, "some-file"))
 						if err != nil {
 							return err
@@ -223,27 +230,56 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 					}
 				})
 
-				it("fetches the latest buildpack", func() {
-					uri, err := remoteFetcher.Get(remoteBuildpack)
-					Expect(err).ToNot(HaveOccurred())
+				context("when the resulting buildpack should be uncached", func() {
+					it("fetches and builds the latest uncached buildpack", func() {
+						uri, err := remoteFetcher.Get(remoteBuildpack, false)
+						Expect(err).ToNot(HaveOccurred())
 
-					Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
-					Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
+						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
+						Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
 
-					Expect(buildpackCache.GetCall.CallCount).To(Equal(1))
+						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
 
-					Expect(transport.DropCall.Receives.Root).To(Equal(""))
-					Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
+						Expect(transport.DropCall.Receives.Root).To(Equal(""))
+						Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
 
-					Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
-					Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
-					Expect(packager.ExecuteCall.Receives.Version).To(Equal("some-tag"))
+						Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
+						Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
+						Expect(packager.ExecuteCall.Receives.Version).To(Equal("some-tag"))
+						Expect(packager.ExecuteCall.Receives.Cached).To(BeFalse())
 
-					Expect(packager.ExecuteCall.Returns.Error).To(BeNil())
+						Expect(packager.ExecuteCall.Returns.Error).To(BeNil())
 
-					Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
+						Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
 
-					Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
+						Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
+					})
+				})
+
+				context("when the resulting buildpack should be cached", func() {
+					it("fetches and builds the latest cached buildpack", func() {
+						uri, err := remoteFetcher.Get(remoteBuildpack, true)
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
+						Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
+
+						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo:cached"))
+
+						Expect(transport.DropCall.Receives.Root).To(Equal(""))
+						Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
+
+						Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
+						Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "cached", "some-tag.tgz")))
+						Expect(packager.ExecuteCall.Receives.Version).To(Equal("some-tag"))
+						Expect(packager.ExecuteCall.Receives.Cached).To(BeTrue())
+
+						Expect(packager.ExecuteCall.Returns.Error).To(BeNil())
+
+						Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
+
+						Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "cached", "some-tag.tgz")))
+					})
 				})
 			})
 		})
@@ -254,7 +290,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("fetches the latest buildpack", func() {
-				uri, err := remoteFetcher.Get(remoteBuildpack)
+				uri, err := remoteFetcher.Get(remoteBuildpack, false)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -289,7 +325,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack)
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
 					Expect(err).To(MatchError("unable to get release"))
 				})
 			})
@@ -300,7 +336,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack)
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
 					Expect(err).To(MatchError("drop failed"))
 				})
 			})
@@ -324,7 +360,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack)
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
 					Expect(err).To(MatchError("failed to create temp directory"))
 				})
 			})
@@ -343,7 +379,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack)
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
 					Expect(err).To(MatchError(ContainSubstring("failed to create gzip reader")))
 				})
 			})
@@ -362,7 +398,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack)
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
 					Expect(err).To(MatchError("failed to package buildpack"))
 				})
 			})
@@ -375,7 +411,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack)
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
 					Expect(err).To(MatchError("failed to set new cache entry"))
 				})
 			})
