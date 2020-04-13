@@ -106,7 +106,7 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string
 
 			// This strips one layer of the directories off to compensate for the file format
 			// given to use by github maybe try and find a more elegant solution to this if it
-			// matters.
+			// matters. Replace this with strip interface when the PR get through
 			files, err := filepath.Glob(filepath.Join(downloadDir, "*", "*"))
 			if err != nil {
 				return "", err

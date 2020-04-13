@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"os/user"
 	"path/filepath"
 
@@ -48,7 +47,7 @@ func (s Stock) Execute(args []string) error {
 	fset.StringVar(&repo, "repo", "", "the name of the repository in the form of org/repo (eg. cloudfoundry/nodejs-cnb) (required)")
 	fset.StringVar(&cacheDir, "cache-directory", filepath.Join(usr.HomeDir, ".freezer-cache"), "the location of the cache directory on disk (this will default to $HOME/.freezer-cache)")
 	fset.StringVar(&gitEndpoint, "git-endpoint", "https://api.github.com", "Git endpoint url")
-	fset.StringVar(&githubToken, "github-token", "", "Personal github token to prevent rate limiting")
+	fset.StringVar(&githubToken, "github-token", "", "Personal github token to prevent rate limiting (required)")
 	fset.BoolVar(&cached, "cached", false, "builds a cached version of a buildpack is set to true")
 
 	err = fset.Parse(args)
@@ -65,11 +64,7 @@ func (s Stock) Execute(args []string) error {
 	}
 
 	if githubToken == "" {
-		if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-			githubToken = token
-		} else {
-			panic(errors.New("Please set a gihub token either by using the  --github-token flag or by setting the  GITHUB_TOKEN environment variable"))
-		}
+		return errors.New("missing required flag --github-token")
 	}
 
 	buildpack := freezer.NewRemoteBuildpack(org, repo)
@@ -77,6 +72,7 @@ func (s Stock) Execute(args []string) error {
 	if err = cacheManager.Open(); err != nil {
 		panic(err)
 	}
+	defer cacheManager.Close()
 
 	githubReleaseService := github.NewReleaseService(github.NewConfig(gitEndpoint, githubToken))
 
@@ -87,10 +83,6 @@ func (s Stock) Execute(args []string) error {
 		panic(err)
 	}
 	fmt.Println(uri)
-
-	if err = cacheManager.Close(); err != nil {
-		panic(err)
-	}
 
 	return nil
 }

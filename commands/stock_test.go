@@ -3,7 +3,9 @@ package commands_test
 import (
 	"testing"
 
+	"github.com/ForestEckhardt/freezer"
 	"github.com/ForestEckhardt/freezer/commands"
+	"github.com/cloudfoundry/packit/cargo"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"
@@ -13,11 +15,17 @@ func testStock(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 
+		transport cargo.Transport
+		packager  freezer.PackingTools
+
 		command commands.Stock
 	)
 
 	it.Before(func() {
-		command = commands.NewStock()
+		transport = cargo.NewTransport()
+		packager = freezer.NewPackingTools()
+
+		command = commands.NewStock(transport, packager)
 	})
 
 	context("Execute", func() {
@@ -25,6 +33,7 @@ func testStock(t *testing.T, context spec.G, it spec.S) {
 			err := command.Execute([]string{
 				"--org", "some-org",
 				"--repo", "some-repo",
+				"--github-token", "some-token",
 			})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -43,6 +52,7 @@ func testStock(t *testing.T, context spec.G, it spec.S) {
 			it("prints an error message", func() {
 				err := command.Execute([]string{
 					"--repo", "some-repo",
+					"--github-token", "some-token",
 				})
 				Expect(err).To(MatchError("missing required flag --org"))
 			})
@@ -52,8 +62,19 @@ func testStock(t *testing.T, context spec.G, it spec.S) {
 			it("prints an error message", func() {
 				err := command.Execute([]string{
 					"--org", "some-org",
+					"--github-token", "some-token",
 				})
 				Expect(err).To(MatchError("missing required flag --repo"))
+			})
+		})
+
+		context("when the --github-token flag is empty", func() {
+			it("prints an error message", func() {
+				err := command.Execute([]string{
+					"--org", "some-org",
+					"--repo", "some-repo",
+				})
+				Expect(err).To(MatchError("missing required flag --github-token"))
 			})
 		})
 
