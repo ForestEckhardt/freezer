@@ -30,7 +30,7 @@ type Fetcher struct {
 
 func NewFetcher() Fetcher {
 	return Fetcher{
-		cacheManager:         NewCacheManager(os.Getenv("HOME")),
+		cacheManager:         NewCacheManager(filepath.Join(os.Getenv("HOME"), ".freezer-cache")),
 		githubReleaseService: github.NewReleaseService(github.NewConfig("https://api.github.com", os.Getenv("GIT_TOKEN"))),
 		packager:             NewPackingTools(),
 		transport:            cargo.NewTransport(),
