@@ -99,24 +99,9 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string
 			}
 			defer os.RemoveAll(downloadDir)
 
-			err = vacation.NewTarGzipArchive(bundle).Decompress(downloadDir)
+			err = vacation.NewTarGzipArchive(bundle).StripComponents(1).Decompress(downloadDir)
 			if err != nil {
 				return "", err
-			}
-
-			// This strips one layer of the directories off to compensate for the file format
-			// given to use by github maybe try and find a more elegant solution to this if it
-			// matters. Replace this with strip interface when the PR get through
-			files, err := filepath.Glob(filepath.Join(downloadDir, "*", "*"))
-			if err != nil {
-				return "", err
-			}
-
-			for _, f := range files {
-				err := os.Rename(f, filepath.Join(downloadDir, filepath.Base(f)))
-				if err != nil {
-					return "", err
-				}
 			}
 
 			err = r.packager.Execute(downloadDir, path, release.TagName, cached)

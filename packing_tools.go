@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudfoundry/libcfbuildpack/packager/cnbpackager"
 	"github.com/cloudfoundry/packit/cargo"
@@ -43,6 +44,8 @@ func (p PackingTools) Execute(buildpackDir, output, version string, cached bool)
 	if cached {
 		_, err := os.Stat(filepath.Join(buildpackDir, ".packit"))
 		if err != nil {
+			output = strings.TrimSuffix(output, ".tgz")
+
 			// Run packager this stop gap until either more things are packit compliant or
 			// the format for cached buildpacks change
 			usr, err := user.Current()

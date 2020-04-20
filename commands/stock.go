@@ -67,7 +67,6 @@ func (s Stock) Execute(args []string) error {
 		return errors.New("missing required flag --github-token")
 	}
 
-	buildpack := freezer.NewRemoteBuildpack(org, repo)
 	cacheManager := freezer.NewCacheManager(cacheDir)
 	if err = cacheManager.Open(); err != nil {
 		panic(err)
@@ -78,10 +77,13 @@ func (s Stock) Execute(args []string) error {
 
 	fetcher := freezer.NewRemoteFetcher(&cacheManager, githubReleaseService, s.transport, s.packager, s.fileSystem)
 
+	buildpack := freezer.NewRemoteBuildpack(org, repo)
+
 	uri, err := fetcher.Get(buildpack, cached)
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println(uri)
 
 	return nil

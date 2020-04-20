@@ -9,6 +9,10 @@ import (
 
 func TestFreezer(t *testing.T) {
 	suite := spec.New("commands", spec.Report(report.Terminal{}))
-	suite("Stock", testStock)
+	suite.Pend("Stock", testStock)
 	suite.Run(t)
+}
+
+func Fail(message string) {
+	panic(message)
 }

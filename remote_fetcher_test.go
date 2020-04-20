@@ -384,7 +384,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
-			context("when decompression fails", func() {
+			context("when packing fails", func() {
 				it.Before(func() {
 					gitReleaseFetcher.GetCall.Returns.Release = github.Release{
 						TagName:    "some-tag",

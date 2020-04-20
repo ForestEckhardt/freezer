@@ -18,12 +18,37 @@ func testStock(t *testing.T, context spec.G, it spec.S) {
 		transport cargo.Transport
 		packager  freezer.PackingTools
 
+		// githubAPI *httptest.Server
+
 		command commands.Stock
 	)
 
 	it.Before(func() {
 		transport = cargo.NewTransport()
 		packager = freezer.NewPackingTools()
+
+		// 	githubAPI = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// 		dump, _ := httputil.DumpRequest(req, true)
+		// 		if req.Header.Get("Authorization") != "token some-github-token" {
+		// 			w.WriteHeader(http.StatusForbidden)
+		// 			return
+		// 		}
+		//
+		// 		switch {
+		// 		case req.URL.Path == "/repos/some-org/some-repo/releases/latest":
+		// 			w.Write([]byte(`{
+		// "tag_name": "some-tag",
+		// "assets": [
+		//   {
+		//     "browser_download_url": "some-browser-download-url"
+		//   }
+		// ],
+		// "tarball_url": "some-tarball-url"
+		// 				}`))
+		// 		default:
+		// 			Fail(fmt.Sprintf("unexpected request:\n%s", dump))
+		// 		}
+		// 	}))
 
 		command = commands.NewStock(transport, packager)
 	})
@@ -33,7 +58,7 @@ func testStock(t *testing.T, context spec.G, it spec.S) {
 			err := command.Execute([]string{
 				"--org", "some-org",
 				"--repo", "some-repo",
-				"--github-token", "some-token",
+				"--github-token", "some-github-token",
 			})
 
 			Expect(err).NotTo(HaveOccurred())
