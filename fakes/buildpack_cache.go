@@ -24,8 +24,9 @@ type BuildpackCache struct {
 		Returns struct {
 			CacheEntry freezer.CacheEntry
 			Bool       bool
+			Error      error
 		}
-		Stub func(string) (freezer.CacheEntry, bool)
+		Stub func(string) (freezer.CacheEntry, bool, error)
 	}
 	SetCall struct {
 		sync.Mutex
@@ -50,7 +51,7 @@ func (f *BuildpackCache) Dir() string {
 	}
 	return f.DirCall.Returns.String
 }
-func (f *BuildpackCache) Get(param1 string) (freezer.CacheEntry, bool) {
+func (f *BuildpackCache) Get(param1 string) (freezer.CacheEntry, bool, error) {
 	f.GetCall.Lock()
 	defer f.GetCall.Unlock()
 	f.GetCall.CallCount++
@@ -58,7 +59,7 @@ func (f *BuildpackCache) Get(param1 string) (freezer.CacheEntry, bool) {
 	if f.GetCall.Stub != nil {
 		return f.GetCall.Stub(param1)
 	}
-	return f.GetCall.Returns.CacheEntry, f.GetCall.Returns.Bool
+	return f.GetCall.Returns.CacheEntry, f.GetCall.Returns.Bool, f.GetCall.Returns.Error
 }
 func (f *BuildpackCache) Set(param1 string, param2 freezer.CacheEntry) error {
 	f.SetCall.Lock()

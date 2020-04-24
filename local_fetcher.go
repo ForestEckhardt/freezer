@@ -43,7 +43,11 @@ func (l LocalFetcher) Get(localBuildpack LocalBuildpack, cached bool) (string, e
 
 	path := filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", name))
 
-	cachedEntry, exist := l.buildpackCache.Get(key)
+	cachedEntry, exist, err := l.buildpackCache.Get(key)
+	if err != nil {
+		return "", err
+	}
+
 	if !exist {
 		err := os.MkdirAll(buildpackCacheDir, os.ModePerm)
 		if err != nil {

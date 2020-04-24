@@ -27,7 +27,7 @@ type Packager interface {
 
 //go:generate faux --interface BuildpackCache --output fakes/buildpack_cache.go
 type BuildpackCache interface {
-	Get(key string) (CacheEntry, bool)
+	Get(key string) (CacheEntry, bool, error)
 	Set(key string, cachedEntry CacheEntry) error
 	Dir() string
 }
@@ -66,7 +66,11 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string
 		key = remoteBuildpack.cachedKey
 	}
 
-	cachedEntry, exist := r.buildpackCache.Get(key)
+	cachedEntry, exist, err := r.buildpackCache.Get(key)
+	if err != nil {
+		return "", err
+	}
+
 	if !exist {
 		err = os.MkdirAll(buildpackCacheDir, os.ModePerm)
 		if err != nil {

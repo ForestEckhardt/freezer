@@ -91,6 +91,17 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
+			context("cache get fails", func() {
+				it.Before(func() {
+					buildpackCache.GetCall.Returns.Error = errors.New("failed get")
+				})
+
+				it("returns an error", func() {
+					_, err := localFetcher.Get(localBuildpack, false)
+					Expect(err).To(MatchError("failed get"))
+				})
+			})
+
 			context("unable to create new directory in cache directory", func() {
 				it.Before(func() {
 					buildpackCache.GetCall.Returns.Bool = false

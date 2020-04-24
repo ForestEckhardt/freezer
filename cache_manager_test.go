@@ -129,24 +129,65 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 	})
 
 	context("Get", func() {
+		var uri string
+
 		it.Before(func() {
 			err := cacheManager.Open()
 			Expect(err).ToNot(HaveOccurred())
-			cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: "some-uri"}}
+
+			uri = filepath.Join(cacheDir, "some-uri")
+			cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: uri}}
 		})
 
 		context("when the key exists", func() {
-			it("returns the entry and ok", func() {
-				entry, ok := cacheManager.Get("some-buildpack")
-				Expect(ok).To(BeTrue())
-				Expect(entry).To(Equal(freezer.CacheEntry{Version: "1.2.3", URI: "some-uri"}))
+			context("and the file in uri exists", func() {
+				it.Before(func() {
+					Expect(ioutil.WriteFile(uri, []byte(`some-content`), 0644)).To(Succeed())
+				})
+
+				it("returns the entry and ok", func() {
+					entry, ok, err := cacheManager.Get("some-buildpack")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ok).To(BeTrue())
+					Expect(entry).To(Equal(freezer.CacheEntry{Version: "1.2.3", URI: uri}))
+				})
+			})
+
+			context("and the file in uri does not exists", func() {
+				it("returns the entry and not ok", func() {
+					entry, ok, err := cacheManager.Get("some-buildpack")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ok).To(BeFalse())
+					Expect(entry).To(Equal(freezer.CacheEntry{Version: "1.2.3", URI: uri}))
+				})
 			})
 		})
+
 		context("when the does not key exist", func() {
 			it("returns with an empty entry and not ok", func() {
-				entry, ok := cacheManager.Get("some-buildpack-other")
+				entry, ok, err := cacheManager.Get("some-buildpack-other")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(ok).To(BeFalse())
 				Expect(entry).To(Equal(freezer.CacheEntry{}))
+			})
+		})
+
+		context("failure cases", func() {
+			context("the cached file is cannot be stated", func() {
+				it.Before(func() {
+					Expect(ioutil.WriteFile(uri, []byte(`some-content`), 0644)).To(Succeed())
+
+					Expect(os.Chmod(cacheDir, 0000)).To(Succeed())
+				})
+
+				it.After(func() {
+					Expect(os.Chmod(cacheDir, os.ModePerm)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					_, _, err := cacheManager.Get("some-buildpack")
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
 			})
 		})
 	})

@@ -330,6 +330,17 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
+			context("cache get fails", func() {
+				it.Before(func() {
+					buildpackCache.GetCall.Returns.Error = errors.New("failed get")
+				})
+
+				it("returns an error", func() {
+					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					Expect(err).To(MatchError("failed get"))
+				})
+			})
+
 			context("transport drop fails", func() {
 				it.Before(func() {
 					transport.DropCall.Returns.Error = errors.New("drop failed")

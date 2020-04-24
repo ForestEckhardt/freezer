@@ -77,9 +77,20 @@ func (c CacheManager) Close() error {
 //This function exists for two reasons  one is so that is could have a standard
 //getter setter interface and the setter is a more complex function the other is
 //to allow for table locking if this were to be adapted for parallel package management
-func (c CacheManager) Get(key string) (CacheEntry, bool) {
+func (c CacheManager) Get(key string) (CacheEntry, bool, error) {
 	entry, ok := c.Cache[key]
-	return entry, ok
+
+	if ok {
+		_, err := os.Stat(entry.URI)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return entry, !ok, nil
+			}
+			return CacheEntry{}, !ok, err
+		}
+	}
+
+	return entry, ok, nil
 }
 
 func (c *CacheManager) Set(key string, value CacheEntry) error {
