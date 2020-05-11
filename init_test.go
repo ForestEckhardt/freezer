@@ -13,6 +13,7 @@ func TestFreezer(t *testing.T) {
 	suite("Fetcher", testFetcher)
 	suite("FileSystem", testFileSystem)
 	suite("LocalFetcher", testLocalFetcher)
+	suite("PackingTools", testPackingTools)
 	suite("RandomName", testRandomName)
 	suite("RemoteFetcher", testRemoteFetcher)
 	suite.Run(t)
