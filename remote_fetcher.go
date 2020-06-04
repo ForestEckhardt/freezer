@@ -50,20 +50,20 @@ func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleas
 	}
 }
 
-func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string, error) {
-	release, err := r.gitReleaseFetcher.Get(remoteBuildpack.org, remoteBuildpack.repo)
+func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
+	release, err := r.gitReleaseFetcher.Get(buildpack.Org, buildpack.Repo)
 	if err != nil {
 		return "", err
 	}
 
-	buildpackCacheDir := filepath.Join(r.buildpackCache.Dir(), remoteBuildpack.org, remoteBuildpack.repo)
-	if cached {
+	buildpackCacheDir := filepath.Join(r.buildpackCache.Dir(), buildpack.Org, buildpack.Repo)
+	if buildpack.Offline {
 		buildpackCacheDir = filepath.Join(buildpackCacheDir, "cached")
 	}
 
-	key := remoteBuildpack.uncachedKey
-	if cached {
-		key = remoteBuildpack.cachedKey
+	key := buildpack.UncachedKey
+	if buildpack.Offline {
+		key = buildpack.CachedKey
 	}
 
 	cachedEntry, exist, err := r.buildpackCache.Get(key)
@@ -83,7 +83,7 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string
 	if release.TagName != cachedEntry.Version || !exist {
 		missingReleaseArtifacts := !(len(release.Assets) > 0)
 		var url string
-		if missingReleaseArtifacts || cached {
+		if missingReleaseArtifacts || buildpack.Offline {
 			url = release.TarballURL
 		} else {
 			url = release.Assets[0].BrowserDownloadURL
@@ -96,8 +96,8 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string
 
 		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", release.TagName))
 
-		if missingReleaseArtifacts || cached {
-			downloadDir, err := r.fileSystem.TempDir("", remoteBuildpack.repo)
+		if missingReleaseArtifacts || buildpack.Offline {
+			downloadDir, err := r.fileSystem.TempDir("", buildpack.Repo)
 			if err != nil {
 				return "", err
 			}
@@ -108,7 +108,7 @@ func (r RemoteFetcher) Get(remoteBuildpack RemoteBuildpack, cached bool) (string
 				return "", err
 			}
 
-			err = r.packager.Execute(downloadDir, path, release.TagName, cached)
+			err = r.packager.Execute(downloadDir, path, release.TagName, buildpack.Offline)
 			if err != nil {
 				return "", err
 			}

@@ -3,17 +3,19 @@ package freezer
 import "fmt"
 
 type LocalBuildpack struct {
-	path        string
-	name        string
-	uncachedKey string
-	cachedKey   string
+	Path        string
+	Name        string
+	UncachedKey string
+	CachedKey   string
+	Offline     bool
+	Version     string
 }
 
 func NewLocalBuildpack(path, name string) LocalBuildpack {
 	return LocalBuildpack{
-		path:        path,
-		name:        name,
-		uncachedKey: fmt.Sprintf("%s", name),
-		cachedKey:   fmt.Sprintf("%s:cached", name),
+		Path:        path,
+		Name:        name,
+		UncachedKey: fmt.Sprintf("%s", name),
+		CachedKey:   fmt.Sprintf("%s:cached", name),
 	}
 }

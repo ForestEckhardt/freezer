@@ -25,18 +25,18 @@ func NewLocalFetcher(buildpackCache BuildpackCache, packager Packager, namer Nam
 	}
 }
 
-func (l LocalFetcher) Get(localBuildpack LocalBuildpack, cached bool) (string, error) {
-	buildpackCacheDir := filepath.Join(l.buildpackCache.Dir(), localBuildpack.name)
-	if cached {
+func (l LocalFetcher) Get(buildpack LocalBuildpack) (string, error) {
+	buildpackCacheDir := filepath.Join(l.buildpackCache.Dir(), buildpack.Name)
+	if buildpack.Offline {
 		buildpackCacheDir = filepath.Join(buildpackCacheDir, "cached")
 	}
 
-	key := localBuildpack.uncachedKey
-	if cached {
-		key = localBuildpack.cachedKey
+	key := buildpack.UncachedKey
+	if buildpack.Offline {
+		key = buildpack.CachedKey
 	}
 
-	name, err := l.namer.RandomName(localBuildpack.name)
+	name, err := l.namer.RandomName(buildpack.Name)
 	if err != nil {
 		return "", fmt.Errorf("random name generation failed: %w", err)
 	}
@@ -61,7 +61,7 @@ func (l LocalFetcher) Get(localBuildpack LocalBuildpack, cached bool) (string, e
 		}
 	}
 
-	err = l.packager.Execute(localBuildpack.path, path, "testing", cached)
+	err = l.packager.Execute(buildpack.Path, path, buildpack.Version, buildpack.Offline)
 	if err != nil {
 		return "", fmt.Errorf("failed to package buildpack: %w", err)
 	}

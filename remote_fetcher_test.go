@@ -74,6 +74,8 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 		buildpackCache.GetCall.Returns.Bool = true
 
 		remoteBuildpack = freezer.NewRemoteBuildpack("some-org", "some-repo")
+		remoteBuildpack.Offline = false
+		remoteBuildpack.Version = "some-version"
 
 		tmpDir, err = ioutil.TempDir("", "tmpDir")
 		Expect(err).NotTo(HaveOccurred())
@@ -104,7 +106,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("keeps the latest buildpack", func() {
-				uri, err := remoteFetcher.Get(remoteBuildpack, false)
+				uri, err := remoteFetcher.Get(remoteBuildpack)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -132,7 +134,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			context("when there is a release artifact present", func() {
 				context("when the resulting buildpack should be uncached", func() {
 					it("fetches the latest buildpack", func() {
-						uri, err := remoteFetcher.Get(remoteBuildpack, false)
+						uri, err := remoteFetcher.Get(remoteBuildpack)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -162,7 +164,8 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 				context("when the resulting buildpack should be cached", func() {
 					it("fetches and builds a cached version of the latest buildpack", func() {
-						uri, err := remoteFetcher.Get(remoteBuildpack, true)
+						remoteBuildpack.Offline = true
+						uri, err := remoteFetcher.Get(remoteBuildpack)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -232,7 +235,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 				context("when the resulting buildpack should be uncached", func() {
 					it("fetches and builds the latest uncached buildpack", func() {
-						uri, err := remoteFetcher.Get(remoteBuildpack, false)
+						uri, err := remoteFetcher.Get(remoteBuildpack)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -258,7 +261,8 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 				context("when the resulting buildpack should be cached", func() {
 					it("fetches and builds the latest cached buildpack", func() {
-						uri, err := remoteFetcher.Get(remoteBuildpack, true)
+						remoteBuildpack.Offline = true
+						uri, err := remoteFetcher.Get(remoteBuildpack)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -290,7 +294,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("fetches the latest buildpack", func() {
-				uri, err := remoteFetcher.Get(remoteBuildpack, false)
+				uri, err := remoteFetcher.Get(remoteBuildpack)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
@@ -325,7 +329,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("unable to get release"))
 				})
 			})
@@ -336,7 +340,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("failed get"))
 				})
 			})
@@ -347,7 +351,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("drop failed"))
 				})
 			})
@@ -371,7 +375,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("failed to create temp directory"))
 				})
 			})
@@ -390,7 +394,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError(ContainSubstring("failed to create gzip reader")))
 				})
 			})
@@ -409,7 +413,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("failed to package buildpack"))
 				})
 			})
@@ -422,7 +426,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := remoteFetcher.Get(remoteBuildpack, false)
+					_, err := remoteFetcher.Get(remoteBuildpack)
 					Expect(err).To(MatchError("failed to set new cache entry"))
 				})
 			})

@@ -78,8 +78,9 @@ func (s Stock) Execute(args []string) error {
 	fetcher := freezer.NewRemoteFetcher(&cacheManager, githubReleaseService, s.transport, s.packager, s.fileSystem)
 
 	buildpack := freezer.NewRemoteBuildpack(org, repo)
+	buildpack.Offline = cached
 
-	uri, err := fetcher.Get(buildpack, cached)
+	uri, err := fetcher.Get(buildpack)
 	if err != nil {
 		panic(err)
 	}
