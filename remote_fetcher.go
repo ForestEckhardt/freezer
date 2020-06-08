@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/ForestEckhardt/freezer/github"
-	"github.com/cloudfoundry/packit/vacation"
+	"github.com/paketo-buildpacks/packit/vacation"
 )
 
 //go:generate faux --interface GitReleaseFetcher --output fakes/git_release_fetcher.go

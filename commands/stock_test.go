@@ -5,7 +5,7 @@ import (
 
 	"github.com/ForestEckhardt/freezer"
 	"github.com/ForestEckhardt/freezer/commands"
-	"github.com/cloudfoundry/packit/cargo"
+	"github.com/paketo-buildpacks/packit/cargo"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"
