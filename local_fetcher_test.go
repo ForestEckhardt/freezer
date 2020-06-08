@@ -49,6 +49,8 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 		}
 
 		localBuildpack = freezer.NewLocalBuildpack("path/to/buildpack", "some-buildpack")
+		localBuildpack.Offline = false
+		localBuildpack.Version = "some-version"
 
 		localFetcher = freezer.NewLocalFetcher(buildpackCache, packager, namer)
 
@@ -59,9 +61,9 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 	})
 
 	context("Get", func() {
-		context("when there is not aleready an existing file", func() {
-			it("builds an uncached version of the buildpack and puts it cache", func() {
-				uri, err := localFetcher.Get(localBuildpack, false)
+		context("when there is not already an existing file", func() {
+			it("builds an uncached version of the buildpack and puts it in the cache", func() {
+				uri, err := localFetcher.Get(localBuildpack)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(buildpackCache.GetCall.CallCount).To(Equal(1))
@@ -70,7 +72,7 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal("path/to/buildpack"))
 				Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-buildpack", "some-buildpack-random-string.tgz")))
-				Expect(packager.ExecuteCall.Receives.Version).To(Equal("testing"))
+				Expect(packager.ExecuteCall.Receives.Version).To(Equal("some-version"))
 				Expect(packager.ExecuteCall.Receives.Cached).To(BeFalse())
 
 				Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
@@ -85,8 +87,9 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 					namer.RandomNameCall.Stub = nil
 					namer.RandomNameCall.Returns.Error = fmt.Errorf("namer failed")
 				})
+
 				it("returns an error", func() {
-					_, err := localFetcher.Get(localBuildpack, false)
+					_, err := localFetcher.Get(localBuildpack)
 					Expect(err).To(MatchError("random name generation failed: namer failed"))
 				})
 			})
@@ -97,7 +100,7 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := localFetcher.Get(localBuildpack, false)
+					_, err := localFetcher.Get(localBuildpack)
 					Expect(err).To(MatchError("failed get"))
 				})
 			})
@@ -114,7 +117,7 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := localFetcher.Get(localBuildpack, false)
+					_, err := localFetcher.Get(localBuildpack)
 					Expect(err).To(MatchError(ContainSubstring("permission denied")))
 				})
 			})
@@ -125,7 +128,7 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := localFetcher.Get(localBuildpack, false)
+					_, err := localFetcher.Get(localBuildpack)
 					Expect(err).To(MatchError("failed to package buildpack: execution failed"))
 				})
 			})
@@ -138,7 +141,7 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					_, err := localFetcher.Get(localBuildpack, false)
+					_, err := localFetcher.Get(localBuildpack)
 					Expect(err).To(MatchError("failed to set new cache entry"))
 				})
 			})
