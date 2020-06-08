@@ -10,7 +10,7 @@ import (
 
 	"github.com/ForestEckhardt/freezer"
 	"github.com/ForestEckhardt/freezer/github"
-	"github.com/cloudfoundry/packit/cargo"
+	"github.com/paketo-buildpacks/packit/cargo"
 )
 
 type Stock struct {
