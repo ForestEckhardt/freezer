@@ -28,7 +28,6 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 		tmpDir      string
 
 		gitReleaseFetcher *fakes.GitReleaseFetcher
-		transport         *fakes.Transport
 		buildpackCache    *fakes.BuildpackCache
 		remoteBuildpack   freezer.RemoteBuildpack
 		packager          *fakes.Packager
@@ -47,13 +46,12 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			TagName: "some-tag",
 			Assets: []github.ReleaseAsset{
 				{
-					BrowserDownloadURL: "some-browser-download-url",
+					URL: "some-url",
 				},
 			},
 			TarballURL: "some-tarball-url",
 		}
 
-		transport = &fakes.Transport{}
 		buffer := bytes.NewBuffer(nil)
 		gw := gzip.NewWriter(buffer)
 		tw := tar.NewWriter(gw)
@@ -64,7 +62,9 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 		Expect(tw.Close()).To(Succeed())
 		Expect(gw.Close()).To(Succeed())
-		transport.DropCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
+
+		gitReleaseFetcher.GetReleaseAssetCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
+		gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
 
 		packager = &fakes.Packager{}
 		buildpackCache = &fakes.BuildpackCache{}
@@ -87,7 +87,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			return downloadDir, nil
 		})
 
-		remoteFetcher = freezer.NewRemoteFetcher(buildpackCache, gitReleaseFetcher, transport, packager, fileSystem)
+		remoteFetcher = freezer.NewRemoteFetcher(buildpackCache, gitReleaseFetcher, packager, fileSystem)
 
 	})
 
@@ -113,8 +113,6 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
 
 				Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
-
-				Expect(transport.DropCall.CallCount).To(Equal(0))
 
 				Expect(buildpackCache.SetCall.CallCount).To(Equal(0))
 
@@ -142,8 +140,9 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
 
-						Expect(transport.DropCall.Receives.Root).To(Equal(""))
-						Expect(transport.DropCall.Receives.Uri).To(Equal("some-browser-download-url"))
+						Expect(gitReleaseFetcher.GetReleaseAssetCall.Receives.Asset).To(Equal(github.ReleaseAsset{
+							URL: "some-url",
+						}))
 
 						Expect(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")).To(BeAnExistingFile())
 						file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz"))
@@ -173,8 +172,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo:cached"))
 
-						Expect(transport.DropCall.Receives.Root).To(Equal(""))
-						Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
+						Expect(gitReleaseFetcher.GetReleaseTarballCall.Receives.Url).To(Equal("some-tarball-url"))
 
 						Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
 						Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "cached", "some-tag.tgz")))
@@ -215,7 +213,8 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 					Expect(tw.Close()).To(Succeed())
 					Expect(gw.Close()).To(Succeed())
-					transport.DropCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
+
+					gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
 
 					Expect(os.MkdirAll(filepath.Join(cacheDir, "some-org", "some-repo"), os.ModePerm)).To(Succeed())
 
@@ -243,8 +242,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
 
-						Expect(transport.DropCall.Receives.Root).To(Equal(""))
-						Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
+						Expect(gitReleaseFetcher.GetReleaseTarballCall.Receives.Url).To(Equal("some-tarball-url"))
 
 						Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
 						Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")))
@@ -270,8 +268,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 						Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo:cached"))
 
-						Expect(transport.DropCall.Receives.Root).To(Equal(""))
-						Expect(transport.DropCall.Receives.Uri).To(Equal("some-tarball-url"))
+						Expect(gitReleaseFetcher.GetReleaseTarballCall.Receives.Url).To(Equal("some-tarball-url"))
 
 						Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal(downloadDir))
 						Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "cached", "some-tag.tgz")))
@@ -302,8 +299,9 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(buildpackCache.GetCall.CallCount).To(Equal(1))
 
-				Expect(transport.DropCall.Receives.Root).To(Equal(""))
-				Expect(transport.DropCall.Receives.Uri).To(Equal("some-browser-download-url"))
+				Expect(gitReleaseFetcher.GetReleaseAssetCall.Receives.Asset).To(Equal(github.ReleaseAsset{
+					URL: "some-url",
+				}))
 
 				Expect(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz")).To(BeAnExistingFile())
 				file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz"))
@@ -345,14 +343,26 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
-			context("transport drop fails", func() {
+			context("when getting the release tarball fails", func() {
 				it.Before(func() {
-					transport.DropCall.Returns.Error = errors.New("drop failed")
+					remoteBuildpack.Offline = true
+					gitReleaseFetcher.GetReleaseTarballCall.Returns.Error = errors.New("unable to get release tarball")
 				})
 
 				it("returns an error", func() {
 					_, err := remoteFetcher.Get(remoteBuildpack)
-					Expect(err).To(MatchError("drop failed"))
+					Expect(err).To(MatchError("unable to get release tarball"))
+				})
+			})
+
+			context("when getting the release asset fails", func() {
+				it.Before(func() {
+					gitReleaseFetcher.GetReleaseAssetCall.Returns.Error = errors.New("unable to get release asset")
+				})
+
+				it("returns an error", func() {
+					_, err := remoteFetcher.Get(remoteBuildpack)
+					Expect(err).To(MatchError("unable to get release asset"))
 				})
 			})
 
@@ -371,7 +381,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 						return "", errors.New("failed to create temp directory")
 					})
 
-					remoteFetcher = freezer.NewRemoteFetcher(buildpackCache, gitReleaseFetcher, transport, packager, fileSystem)
+					remoteFetcher = freezer.NewRemoteFetcher(buildpackCache, gitReleaseFetcher, packager, fileSystem)
 				})
 
 				it("returns an error", func() {
@@ -390,7 +400,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 					buildpackCache.GetCall.Returns.CacheEntry = freezer.CacheEntry{
 						Version: "some-other-tag",
 					}
-					transport.DropCall.Returns.ReadCloser = ioutil.NopCloser(bytes.NewBuffer(nil))
+					gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = ioutil.NopCloser(bytes.NewBuffer(nil))
 				})
 
 				it("returns an error", func() {

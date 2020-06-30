@@ -2,6 +2,7 @@ package github_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -35,7 +36,7 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
   "tag_name": "some-tag",
   "assets": [
     {
-      "browser_download_url": "some-browser-download-url"
+      "url": "some-url"
     }
   ],
   "tarball_url": "some-tarball-url"
@@ -62,7 +63,7 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 				TagName: "some-tag",
 				Assets: []github.ReleaseAsset{
 					{
-						BrowserDownloadURL: "some-browser-download-url",
+						URL: "some-url",
 					},
 				},
 				TarballURL: "some-tarball-url",
@@ -94,6 +95,144 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error", func() {
 					_, err := service.Get("some-org", "malformed-repo")
 					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
+		})
+	})
+
+	context("GetReleaseAsset", func() {
+		it.Before(func() {
+			api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				dump, _ := httputil.DumpRequest(req, true)
+
+				if req.Header.Get("Authorization") != "token some-github-token" && req.Header.Get("Accept") != "application/octet-stream" {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+
+				switch req.URL.Path {
+				case "/some-url":
+					w.Write([]byte(`some-asset`))
+				case "/not-found":
+					w.WriteHeader(http.StatusForbidden)
+				default:
+					Fail(fmt.Sprintf("unexpected request:\n%s", dump))
+				}
+			}))
+
+			service = github.NewReleaseService(github.Config{
+				Endpoint: api.URL,
+				Token:    "some-github-token",
+			})
+		})
+
+		it("fetches the latest release", func() {
+			response, err := service.GetReleaseAsset(github.ReleaseAsset{
+				URL: fmt.Sprintf("%s/some-url", api.URL),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			content, err := ioutil.ReadAll(response)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(content)).To(Equal("some-asset"))
+
+			Expect(response.Close()).To(Succeed())
+		})
+
+		context("failure cases", func() {
+			context("when the url is malformed", func() {
+				it("returns an error", func() {
+					_, err := service.GetReleaseAsset(github.ReleaseAsset{
+						URL: "%%%",
+					})
+					Expect(err).To(MatchError(ContainSubstring("invalid URL escape")))
+				})
+			})
+
+			context("when the request fails", func() {
+				it.Before(func() {
+					api.Close()
+				})
+
+				it("returns an error", func() {
+					_, err := service.GetReleaseAsset(github.ReleaseAsset{
+						URL: fmt.Sprintf("%s/some-url", api.URL),
+					})
+					Expect(err).To(MatchError(ContainSubstring("connection refused")))
+				})
+			})
+
+			context("when the status code is not ok", func() {
+				it("returns an error", func() {
+					_, err := service.GetReleaseAsset(github.ReleaseAsset{
+						URL: fmt.Sprintf("%s/not-found", api.URL),
+					})
+					Expect(err).To(MatchError(ContainSubstring("unexpected response status")))
+				})
+			})
+		})
+	})
+
+	context("GetReleaseTarball", func() {
+		it.Before(func() {
+			api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				dump, _ := httputil.DumpRequest(req, true)
+
+				if req.Header.Get("Authorization") != "token some-github-token" {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+
+				switch req.URL.Path {
+				case "/some-tarball-url":
+					w.Write([]byte(`some-tarball`))
+				case "/not-found":
+					w.WriteHeader(http.StatusForbidden)
+				default:
+					Fail(fmt.Sprintf("unexpected request:\n%s", dump))
+				}
+			}))
+
+			service = github.NewReleaseService(github.Config{
+				Endpoint: api.URL,
+				Token:    "some-github-token",
+			})
+		})
+
+		it("fetches the latest release", func() {
+			response, err := service.GetReleaseTarball(fmt.Sprintf("%s/some-tarball-url", api.URL))
+			Expect(err).ToNot(HaveOccurred())
+
+			content, err := ioutil.ReadAll(response)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(content)).To(Equal("some-tarball"))
+
+			Expect(response.Close()).To(Succeed())
+		})
+
+		context("failure cases", func() {
+			context("when the url is malformed", func() {
+				it("returns an error", func() {
+					_, err := service.GetReleaseTarball("%%%")
+					Expect(err).To(MatchError(ContainSubstring("invalid URL escape")))
+				})
+			})
+
+			context("when the request fails", func() {
+				it.Before(func() {
+					api.Close()
+				})
+
+				it("returns an error", func() {
+					_, err := service.GetReleaseTarball(fmt.Sprintf("%s/some-url", api.URL))
+					Expect(err).To(MatchError(ContainSubstring("connection refused")))
+				})
+			})
+
+			context("when the status code is not ok", func() {
+				it("returns an error", func() {
+					_, err := service.GetReleaseTarball(fmt.Sprintf("%s/not-found", api.URL))
+					Expect(err).To(MatchError(ContainSubstring("unexpected response status")))
 				})
 			})
 		})

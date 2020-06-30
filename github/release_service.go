@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -12,7 +13,7 @@ type ReleaseService struct {
 }
 
 type ReleaseAsset struct {
-	BrowserDownloadURL string `json:"browser_download_url"`
+	URL string `json:"url"`
 }
 
 type Release struct {
@@ -57,4 +58,43 @@ func (rs ReleaseService) Get(org, repo string) (Release, error) {
 	}
 
 	return release, nil
+}
+
+func (rs ReleaseService) GetReleaseAsset(asset ReleaseAsset) (io.ReadCloser, error) {
+	req, err := http.NewRequest("GET", asset.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+	req.Header.Add("Accept", "application/octet-stream")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusFound {
+		return nil, fmt.Errorf("unexpected response status: %s", resp.Status)
+	}
+
+	return resp.Body, nil
+}
+
+func (rs ReleaseService) GetReleaseTarball(url string) (io.ReadCloser, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected response status: %s", resp.Status)
+	}
+
+	return resp.Body, nil
 }
