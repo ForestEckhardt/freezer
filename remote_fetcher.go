@@ -13,11 +13,8 @@ import (
 //go:generate faux --interface GitReleaseFetcher --output fakes/git_release_fetcher.go
 type GitReleaseFetcher interface {
 	Get(org, repo string) (github.Release, error)
-}
-
-//go:generate faux --interface Transport --output fakes/transport.go
-type Transport interface {
-	Drop(root, uri string) (io.ReadCloser, error)
+	GetReleaseAsset(asset github.ReleaseAsset) (io.ReadCloser, error)
+	GetReleaseTarball(url string) (io.ReadCloser, error)
 }
 
 //go:generate faux --interface Packager --output fakes/packager.go
@@ -35,16 +32,14 @@ type BuildpackCache interface {
 type RemoteFetcher struct {
 	buildpackCache    BuildpackCache
 	gitReleaseFetcher GitReleaseFetcher
-	transport         Transport
 	packager          Packager
 	fileSystem        FileSystem
 }
 
-func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleaseFetcher, transport Transport, packager Packager, fileSystem FileSystem) RemoteFetcher {
+func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleaseFetcher, packager Packager, fileSystem FileSystem) RemoteFetcher {
 	return RemoteFetcher{
 		buildpackCache:    buildpackCache,
 		gitReleaseFetcher: gitReleaseFetcher,
-		transport:         transport,
 		packager:          packager,
 		fileSystem:        fileSystem,
 	}
@@ -82,16 +77,17 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 
 	if release.TagName != cachedEntry.Version || !exist {
 		missingReleaseArtifacts := !(len(release.Assets) > 0)
-		var url string
+		var bundle io.ReadCloser
 		if missingReleaseArtifacts || buildpack.Offline {
-			url = release.TarballURL
+			bundle, err = r.gitReleaseFetcher.GetReleaseTarball(release.TarballURL)
+			if err != nil {
+				return "", err
+			}
 		} else {
-			url = release.Assets[0].BrowserDownloadURL
-		}
-
-		bundle, err := r.transport.Drop("", url)
-		if err != nil {
-			return "", err
+			bundle, err = r.gitReleaseFetcher.GetReleaseAsset(release.Assets[0])
+			if err != nil {
+				return "", err
+			}
 		}
 
 		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", release.TagName))
