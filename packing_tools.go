@@ -25,9 +25,10 @@ func NewPackingTools() PackingTools {
 	tarBuilder := cargo.NewTarBuilder(logger)
 	prePackager := cargo.NewPrePackager(bash, logger, scribe.NewWriter(os.Stdout, scribe.WithIndent(2)))
 	dependencyCacher := cargo.NewDependencyCacher(transport, logger)
+	deprecationWarning := cargo.NewDeprecationWarning()
 
 	return PackingTools{
-		jam: commands.NewPack(directoryDuplicator, buildpackParser, prePackager, dependencyCacher, fileBundler, tarBuilder, os.Stdout),
+		jam: commands.NewPack(directoryDuplicator, buildpackParser, prePackager, dependencyCacher, fileBundler, tarBuilder, deprecationWarning, os.Stdout),
 	}
 }
 
