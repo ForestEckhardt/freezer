@@ -1,43 +1,41 @@
 package freezer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/paketo-buildpacks/packit/cargo"
-	"github.com/paketo-buildpacks/packit/cargo/jam/commands"
 	"github.com/paketo-buildpacks/packit/pexec"
-	"github.com/paketo-buildpacks/packit/scribe"
 )
 
+//go:generate faux --interface Executable --output fakes/executable.go
+type Executable interface {
+	Execute(pexec.Execution) error
+}
+
 type PackingTools struct {
-	jam commands.Pack
+	jam Executable
 }
 
 func NewPackingTools() PackingTools {
-	logger := scribe.NewLogger(os.Stdout)
-	bash := pexec.NewExecutable("bash")
-
-	transport := cargo.NewTransport()
-	directoryDuplicator := cargo.NewDirectoryDuplicator()
-	buildpackParser := cargo.NewBuildpackParser()
-	fileBundler := cargo.NewFileBundler()
-	tarBuilder := cargo.NewTarBuilder(logger)
-	prePackager := cargo.NewPrePackager(bash, logger, scribe.NewWriter(os.Stdout, scribe.WithIndent(2)))
-	dependencyCacher := cargo.NewDependencyCacher(transport, logger)
-
 	return PackingTools{
-		jam: commands.NewPack(directoryDuplicator, buildpackParser, prePackager, dependencyCacher, fileBundler, tarBuilder, os.Stdout),
+		jam: pexec.NewExecutable("jam"),
 	}
+}
+
+func (p PackingTools) WithExecutable(executable Executable) PackingTools {
+	p.jam = executable
+	return p
 }
 
 func (p PackingTools) Execute(buildpackDir, output, version string, cached bool) error {
 	_, err := os.Stat(filepath.Join(buildpackDir, ".packit"))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to find .packit in buildpack directory: %w", err)
 	}
 
 	args := []string{
+		"pack",
 		"--buildpack", filepath.Join(buildpackDir, "buildpack.toml"),
 		"--output", output,
 		"--version", version,
@@ -47,5 +45,5 @@ func (p PackingTools) Execute(buildpackDir, output, version string, cached bool)
 		args = append(args, "--offline")
 	}
 
-	return p.jam.Execute(args)
+	return p.jam.Execute(pexec.Execution{Args: args})
 }

@@ -1,30 +1,93 @@
 package freezer_test
 
 import (
+	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ForestEckhardt/freezer"
-	. "github.com/onsi/gomega"
+	"github.com/paketo-buildpacks/occam/fakes"
 	"github.com/sclevine/spec"
+
+	. "github.com/onsi/gomega"
 )
 
 func testPackingTools(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 
+		buildpackDir string
+
+		executable   *fakes.Executable
 		packingTools freezer.PackingTools
 	)
 
 	it.Before(func() {
-		packingTools = freezer.NewPackingTools()
+		var err error
+		buildpackDir, err = ioutil.TempDir("", "buildpack-dir")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ioutil.WriteFile(filepath.Join(buildpackDir, ".packit"), nil, 0600)).To(Succeed())
+
+		executable = &fakes.Executable{}
+
+		packingTools = freezer.NewPackingTools().WithExecutable(executable)
+
+	})
+
+	it.After(func() {
+		Expect(os.RemoveAll(buildpackDir)).To(Succeed())
 	})
 
 	context("Execute", func() {
+		it("creates a correct pexec.Execution", func() {
+			err := packingTools.Execute(buildpackDir, "some-output", "some-version", false)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(executable.ExecuteCall.Receives.Execution.Args).To(Equal([]string{
+				"pack",
+				"--buildpack", filepath.Join(buildpackDir, "buildpack.toml"),
+				"--output", "some-output",
+				"--version", "some-version",
+			}))
+		})
+
+		context("when cache is set to true", func() {
+			it("creates a correct pexec.Execution", func() {
+				err := packingTools.Execute(buildpackDir, "some-output", "some-version", true)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executable.ExecuteCall.Receives.Execution.Args).To(Equal([]string{
+					"pack",
+					"--buildpack", filepath.Join(buildpackDir, "buildpack.toml"),
+					"--output", "some-output",
+					"--version", "some-version",
+					"--offline",
+				}))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the buildpack is not a packit buildpack", func() {
+				it.Before(func() {
+					os.Remove(filepath.Join(buildpackDir, ".packit"))
+				})
+
 				it("returns an error", func() {
-					err := packingTools.Execute("fake-dir/", "", "", false)
+					err := packingTools.Execute(buildpackDir, "some-output", "some-version", true)
+					Expect(err).To(MatchError(ContainSubstring("unable to find .packit in buildpack directory:")))
 					Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
+				})
+			})
+
+			context("when the execution returns an error", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Returns.Error = errors.New("some error")
+				})
+				it("returns an error", func() {
+					err := packingTools.Execute(buildpackDir, "some-output", "some-version", true)
+					Expect(err).To(MatchError("some error"))
 				})
 			})
 		})
