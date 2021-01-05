@@ -45,5 +45,9 @@ func (p PackingTools) Execute(buildpackDir, output, version string, cached bool)
 		args = append(args, "--offline")
 	}
 
-	return p.jam.Execute(pexec.Execution{Args: args})
+	return p.jam.Execute(pexec.Execution{
+		Args:   args,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	})
 }
