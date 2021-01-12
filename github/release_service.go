@@ -40,7 +40,10 @@ func (rs ReleaseService) Get(org, repo string) (Release, error) {
 	if err != nil {
 		return Release{}, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+
+	if rs.config.Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -65,7 +68,11 @@ func (rs ReleaseService) GetReleaseAsset(asset ReleaseAsset) (io.ReadCloser, err
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+
+	if rs.config.Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+	}
+
 	req.Header.Add("Accept", "application/octet-stream")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -85,7 +92,10 @@ func (rs ReleaseService) GetReleaseTarball(url string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+
+	if rs.config.Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("token %s", rs.config.Token))
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

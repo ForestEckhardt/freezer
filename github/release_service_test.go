@@ -70,6 +70,52 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 			}))
 		})
 
+		context("when no github token is specified", func() {
+			var authToken string
+			it.Before(func() {
+
+				api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					dump, _ := httputil.DumpRequest(req, true)
+
+					authToken = req.Header.Get("Authorization")
+
+					switch req.URL.Path {
+					case "/repos/some-org/some-repo/releases/latest":
+						w.Write([]byte(`{
+  "tag_name": "some-tag",
+  "assets": [
+    {
+      "url": "some-url"
+    }
+  ],
+  "tarball_url": "some-tarball-url"
+					}`))
+					default:
+						Fail(fmt.Sprintf("unexpected request:\n%s", dump))
+					}
+
+				}))
+				service = github.NewReleaseService(github.Config{
+					Endpoint: api.URL,
+				})
+
+			})
+			it("makes the call without any authorization header", func() {
+				release, err := service.Get("some-org", "some-repo")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(release).To(Equal(github.Release{
+					TagName: "some-tag",
+					Assets: []github.ReleaseAsset{
+						{
+							URL: "some-url",
+						},
+					},
+					TarballURL: "some-tarball-url",
+				}))
+				Expect(authToken).To(Equal(""))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the request url is malformed", func() {
 				it.Before(func() {
@@ -137,6 +183,44 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 			Expect(string(content)).To(Equal("some-asset"))
 
 			Expect(response.Close()).To(Succeed())
+		})
+
+		context("when no github token is specified", func() {
+			var authToken string
+			it.Before(func() {
+
+				api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					dump, _ := httputil.DumpRequest(req, true)
+
+					authToken = req.Header.Get("Authorization")
+
+					switch req.URL.Path {
+					case "/some-url":
+						w.Write([]byte(`some-asset`))
+					default:
+						Fail(fmt.Sprintf("unexpected request:\n%s", dump))
+					}
+
+				}))
+
+				service = github.NewReleaseService(github.Config{
+					Endpoint: api.URL,
+				})
+
+			})
+			it("fetches the latest release without any authorization header", func() {
+				response, err := service.GetReleaseAsset(github.ReleaseAsset{
+					URL: fmt.Sprintf("%s/some-url", api.URL),
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := ioutil.ReadAll(response)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(content)).To(Equal("some-asset"))
+
+				Expect(response.Close()).To(Succeed())
+				Expect(authToken).To(Equal(""))
+			})
 		})
 
 		context("failure cases", func() {
@@ -208,6 +292,42 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 			Expect(string(content)).To(Equal("some-tarball"))
 
 			Expect(response.Close()).To(Succeed())
+		})
+
+		context("when no github token is specified", func() {
+			var authToken string
+			it.Before(func() {
+
+				api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					dump, _ := httputil.DumpRequest(req, true)
+
+					authToken = req.Header.Get("Authorization")
+
+					switch req.URL.Path {
+					case "/some-tarball-url":
+						w.Write([]byte(`some-tarball`))
+					default:
+						Fail(fmt.Sprintf("unexpected request:\n%s", dump))
+					}
+
+				}))
+
+				service = github.NewReleaseService(github.Config{
+					Endpoint: api.URL,
+				})
+
+			})
+			it("fetches the latest release tarball without any authorization header", func() {
+				response, err := service.GetReleaseTarball(fmt.Sprintf("%s/some-tarball-url", api.URL))
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := ioutil.ReadAll(response)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(content)).To(Equal("some-tarball"))
+
+				Expect(response.Close()).To(Succeed())
+				Expect(authToken).To(Equal(""))
+			})
 		})
 
 		context("failure cases", func() {
