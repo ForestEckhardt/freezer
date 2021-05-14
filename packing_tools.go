@@ -1,7 +1,6 @@
 package freezer
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -29,11 +28,6 @@ func (p PackingTools) WithExecutable(executable Executable) PackingTools {
 }
 
 func (p PackingTools) Execute(buildpackDir, output, version string, cached bool) error {
-	_, err := os.Stat(filepath.Join(buildpackDir, ".packit"))
-	if err != nil {
-		return fmt.Errorf("unable to find .packit in buildpack directory: %w", err)
-	}
-
 	args := []string{
 		"pack",
 		"--buildpack", filepath.Join(buildpackDir, "buildpack.toml"),

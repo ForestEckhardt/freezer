@@ -28,7 +28,6 @@ func testPackingTools(t *testing.T, context spec.G, it spec.S) {
 		var err error
 		buildpackDir, err = ioutil.TempDir("", "buildpack-dir")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(ioutil.WriteFile(filepath.Join(buildpackDir, ".packit"), nil, 0600)).To(Succeed())
 
 		executable = &fakes.Executable{}
 
@@ -69,18 +68,6 @@ func testPackingTools(t *testing.T, context spec.G, it spec.S) {
 		})
 
 		context("failure cases", func() {
-			context("when the buildpack is not a packit buildpack", func() {
-				it.Before(func() {
-					os.Remove(filepath.Join(buildpackDir, ".packit"))
-				})
-
-				it("returns an error", func() {
-					err := packingTools.Execute(buildpackDir, "some-output", "some-version", true)
-					Expect(err).To(MatchError(ContainSubstring("unable to find .packit in buildpack directory:")))
-					Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
-				})
-			})
-
 			context("when the execution returns an error", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Returns.Error = errors.New("some error")
