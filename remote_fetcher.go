@@ -45,6 +45,11 @@ func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleas
 	}
 }
 
+func (r RemoteFetcher) WithPackager(packager Packager) RemoteFetcher {
+	r.packager = packager
+	return r
+}
+
 func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 	release, err := r.gitReleaseFetcher.Get(buildpack.Org, buildpack.Repo)
 	if err != nil {
