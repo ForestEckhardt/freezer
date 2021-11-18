@@ -25,6 +25,11 @@ func NewLocalFetcher(buildpackCache BuildpackCache, packager Packager, namer Nam
 	}
 }
 
+func (l LocalFetcher) WithPackager(packager Packager) LocalFetcher {
+	l.packager = packager
+	return l
+}
+
 func (l LocalFetcher) Get(buildpack LocalBuildpack) (string, error) {
 	buildpackCacheDir := filepath.Join(l.buildpackCache.Dir(), buildpack.Name)
 	if buildpack.Offline {
