@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,7 +38,7 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 	it.Before(func() {
 		var err error
 
-		cacheDir, err = ioutil.TempDir("", "cache")
+		cacheDir, err = os.MkdirTemp("", "cache")
 		Expect(err).NotTo(HaveOccurred())
 
 		gitReleaseFetcher = &fakes.GitReleaseFetcher{}
@@ -63,8 +63,8 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 		Expect(tw.Close()).To(Succeed())
 		Expect(gw.Close()).To(Succeed())
 
-		gitReleaseFetcher.GetReleaseAssetCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
-		gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
+		gitReleaseFetcher.GetReleaseAssetCall.Returns.ReadCloser = io.NopCloser(buffer)
+		gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = io.NopCloser(buffer)
 
 		packager = &fakes.Packager{}
 		buildpackCache = &fakes.BuildpackCache{}
@@ -77,10 +77,10 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 		remoteBuildpack.Offline = false
 		remoteBuildpack.Version = "some-version"
 
-		tmpDir, err = ioutil.TempDir("", "tmpDir")
+		tmpDir, err = os.MkdirTemp("", "tmpDir")
 		Expect(err).NotTo(HaveOccurred())
 
-		downloadDir, err = ioutil.TempDir(tmpDir, "downloadDir")
+		downloadDir, err = os.MkdirTemp(tmpDir, "downloadDir")
 		Expect(err).NotTo(HaveOccurred())
 
 		fileSystem = freezer.NewFileSystem(func(string, string) (string, error) {
@@ -148,10 +148,10 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 						file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz"))
 						Expect(err).ToNot(HaveOccurred())
 
-						err = vacation.NewTarGzipArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
+						err = vacation.NewArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
 						Expect(err).ToNot(HaveOccurred())
 
-						content, err := ioutil.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
+						content, err := os.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
 						Expect(err).NotTo(HaveOccurred())
 						Expect(string(content)).To(Equal("some content"))
 
@@ -214,12 +214,12 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 					Expect(tw.Close()).To(Succeed())
 					Expect(gw.Close()).To(Succeed())
 
-					gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = ioutil.NopCloser(buffer)
+					gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = io.NopCloser(buffer)
 
 					Expect(os.MkdirAll(filepath.Join(cacheDir, "some-org", "some-repo"), os.ModePerm)).To(Succeed())
 
 					packager.ExecuteCall.Stub = func(string, string, string, bool) error {
-						content, err := ioutil.ReadFile(filepath.Join(downloadDir, "some-file"))
+						content, err := os.ReadFile(filepath.Join(downloadDir, "some-file"))
 						if err != nil {
 							return err
 						}
@@ -307,10 +307,10 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 				file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "some-tag.tgz"))
 				Expect(err).ToNot(HaveOccurred())
 
-				err = vacation.NewTarGzipArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
+				err = vacation.NewArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
 				Expect(err).ToNot(HaveOccurred())
 
-				content, err := ioutil.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
+				content, err := os.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(content)).To(Equal("some content"))
 
@@ -400,12 +400,12 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 					buildpackCache.GetCall.Returns.CacheEntry = freezer.CacheEntry{
 						Version: "some-other-tag",
 					}
-					gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = ioutil.NopCloser(bytes.NewBuffer(nil))
+					gitReleaseFetcher.GetReleaseTarballCall.Returns.ReadCloser = io.NopCloser(bytes.NewBuffer(nil))
 				})
 
 				it("returns an error", func() {
 					_, err := remoteFetcher.Get(remoteBuildpack)
-					Expect(err).To(MatchError(ContainSubstring("failed to create gzip reader")))
+					Expect(err).To(MatchError(ContainSubstring("unsupported archive type: text/plain")))
 				})
 			})
 

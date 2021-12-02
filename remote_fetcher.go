@@ -104,7 +104,7 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 			}
 			defer os.RemoveAll(downloadDir)
 
-			err = vacation.NewTarGzipArchive(bundle).StripComponents(1).Decompress(downloadDir)
+			err = vacation.NewArchive(bundle).StripComponents(1).Decompress(downloadDir)
 			if err != nil {
 				return "", err
 			}

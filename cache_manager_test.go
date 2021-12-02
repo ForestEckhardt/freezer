@@ -3,7 +3,6 @@ package freezer_test
 import (
 	"bytes"
 	"encoding/gob"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +24,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 
 	it.Before(func() {
 		var err error
-		cacheDir, err = ioutil.TempDir("", "cache")
+		cacheDir, err = os.MkdirTemp("", "cache")
 		Expect(err).ToNot(HaveOccurred())
 
 		cacheManager = freezer.NewCacheManager(cacheDir)
@@ -46,7 +45,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 				err := gob.NewEncoder(b).Encode(&inputMap)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(ioutil.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), b.Bytes(), os.ModePerm))
+				Expect(os.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), b.Bytes(), os.ModePerm))
 			})
 
 			it("returns the cache map stored in the buildpacks-cache.db folder", func() {
@@ -84,7 +83,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 
 			context("unable to open the buildpack-cache.db", func() {
 				it.Before(func() {
-					Expect(ioutil.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), []byte{}, 0000))
+					Expect(os.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), []byte{}, 0000))
 				})
 				it("returns an error", func() {
 					err := cacheManager.Open()
@@ -94,7 +93,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 
 			context("unable to open the buildpack-cache.db", func() {
 				it.Before(func() {
-					Expect(ioutil.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), []byte(`%%%`), os.ModePerm))
+					Expect(os.WriteFile(filepath.Join(cacheDir, "buildpacks-cache.db"), []byte(`%%%`), os.ModePerm))
 				})
 				it("returns an error", func() {
 					err := cacheManager.Open()
@@ -142,7 +141,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 		context("when the key exists", func() {
 			context("and the file in uri exists", func() {
 				it.Before(func() {
-					Expect(ioutil.WriteFile(uri, []byte(`some-content`), 0644)).To(Succeed())
+					Expect(os.WriteFile(uri, []byte(`some-content`), 0644)).To(Succeed())
 				})
 
 				it("returns the entry and ok", func() {
@@ -175,7 +174,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 		context("failure cases", func() {
 			context("the cached file is cannot be stated", func() {
 				it.Before(func() {
-					Expect(ioutil.WriteFile(uri, []byte(`some-content`), 0644)).To(Succeed())
+					Expect(os.WriteFile(uri, []byte(`some-content`), 0644)).To(Succeed())
 
 					Expect(os.Chmod(cacheDir, 0000)).To(Succeed())
 				})
@@ -201,7 +200,7 @@ func testCacheManager(t *testing.T, context spec.G, it spec.S) {
 
 			uri = filepath.Join(cacheDir, "some-file")
 
-			Expect(ioutil.WriteFile(uri, []byte(`some content`), 0644)).To(Succeed())
+			Expect(os.WriteFile(uri, []byte(`some content`), 0644)).To(Succeed())
 
 			cacheManager.Cache = freezer.CacheDB{"some-buildpack": freezer.CacheEntry{Version: "1.2.3", URI: uri}}
 		})

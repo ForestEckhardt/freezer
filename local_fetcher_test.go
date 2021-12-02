@@ -3,7 +3,6 @@ package freezer_test
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,7 +31,7 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 	it.Before(func() {
 		var err error
 
-		cacheDir, err = ioutil.TempDir("", "cache")
+		cacheDir, err = os.MkdirTemp("", "cache")
 		Expect(err).NotTo(HaveOccurred())
 
 		packager = &fakes.Packager{}

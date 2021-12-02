@@ -2,7 +2,7 @@ package github_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -178,7 +178,7 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			content, err := ioutil.ReadAll(response)
+			content, err := io.ReadAll(response)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(content)).To(Equal("some-asset"))
 
@@ -214,7 +214,7 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 				})
 				Expect(err).ToNot(HaveOccurred())
 
-				content, err := ioutil.ReadAll(response)
+				content, err := io.ReadAll(response)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(content)).To(Equal("some-asset"))
 
@@ -287,7 +287,7 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 			response, err := service.GetReleaseTarball(fmt.Sprintf("%s/some-tarball-url", api.URL))
 			Expect(err).ToNot(HaveOccurred())
 
-			content, err := ioutil.ReadAll(response)
+			content, err := io.ReadAll(response)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(content)).To(Equal("some-tarball"))
 
@@ -321,7 +321,7 @@ func testReleaseService(t *testing.T, context spec.G, it spec.S) {
 				response, err := service.GetReleaseTarball(fmt.Sprintf("%s/some-tarball-url", api.URL))
 				Expect(err).ToNot(HaveOccurred())
 
-				content, err := ioutil.ReadAll(response)
+				content, err := io.ReadAll(response)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(content)).To(Equal("some-tarball"))
 

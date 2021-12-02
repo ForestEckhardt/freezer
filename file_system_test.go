@@ -1,7 +1,6 @@
 package freezer_test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -15,7 +14,7 @@ func testFileSystem(t *testing.T, context spec.G, it spec.S) {
 
 	context("TempDir", func() {
 		it("returns the value given from the TempDir function", func() {
-			filename, err := ioutil.TempDir("", "tempDir")
+			filename, err := os.MkdirTemp("", "tempDir")
 			defer os.RemoveAll(filename)
 
 			fileSystem := freezer.NewFileSystem(func(string, string) (string, error) {
