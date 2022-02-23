@@ -1,3 +1,5 @@
+// Inspired by github.com/paketo-buildpacks/occam/random_name.go
+
 package freezer
 
 import (

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ForestEckhardt/freezer"
-	"github.com/paketo-buildpacks/occam/fakes"
+	"github.com/ForestEckhardt/freezer/fakes"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"

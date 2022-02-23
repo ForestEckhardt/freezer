@@ -1,5 +1,3 @@
-// Inspired by github.com/cloudfoundry/occam/random_name.go
-
 package freezer_test
 
 import (

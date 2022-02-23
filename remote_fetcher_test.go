@@ -13,7 +13,7 @@ import (
 	"github.com/ForestEckhardt/freezer"
 	"github.com/ForestEckhardt/freezer/fakes"
 	"github.com/ForestEckhardt/freezer/github"
-	"github.com/paketo-buildpacks/packit/vacation"
+	"github.com/paketo-buildpacks/packit/v2/vacation"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"
