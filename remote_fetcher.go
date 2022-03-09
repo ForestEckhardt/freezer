@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ForestEckhardt/freezer/github"
 	"github.com/paketo-buildpacks/packit/v2/vacation"
@@ -79,8 +80,9 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 	}
 
 	path := cachedEntry.URI
+	tagName := strings.TrimLeft(release.TagName, "v")
 
-	if release.TagName != cachedEntry.Version || !exist {
+	if tagName != cachedEntry.Version || !exist {
 		missingReleaseArtifacts := !(len(release.Assets) > 0)
 		var bundle io.ReadCloser
 		if missingReleaseArtifacts || buildpack.Offline {
@@ -95,7 +97,7 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 			}
 		}
 
-		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", release.TagName))
+		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", tagName))
 
 		if missingReleaseArtifacts || buildpack.Offline {
 			downloadDir, err := r.fileSystem.TempDir("", buildpack.Repo)
@@ -109,7 +111,7 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 				return "", err
 			}
 
-			err = r.packager.Execute(downloadDir, path, release.TagName, buildpack.Offline)
+			err = r.packager.Execute(downloadDir, path, tagName, buildpack.Offline)
 			if err != nil {
 				return "", err
 			}
@@ -128,7 +130,7 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 		}
 
 		err = r.buildpackCache.Set(key, CacheEntry{
-			Version: release.TagName,
+			Version: tagName,
 			URI:     path,
 		})
 
