@@ -80,7 +80,7 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 	}
 
 	path := cachedEntry.URI
-	tagName := strings.TrimLeft(release.TagName, "v")
+	tagName := strings.TrimPrefix(release.TagName, "v")
 
 	if tagName != cachedEntry.Version || !exist {
 		missingReleaseArtifacts := !(len(release.Assets) > 0)

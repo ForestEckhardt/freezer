@@ -320,6 +320,55 @@ func testRemoteFetcher(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when there is a v prepending the release tag", func() {
+			it.Before(func() {
+				gitReleaseFetcher.GetCall.Returns.Release = github.Release{
+					TagName: "v1.2.3",
+					Assets: []github.ReleaseAsset{
+						{
+							URL: "some-url",
+						},
+					},
+					TarballURL: "some-tarball-url",
+				}
+
+				buildpackCache.GetCall.Returns.CacheEntry = freezer.CacheEntry{
+					Version: "some-other-tag",
+				}
+
+				Expect(os.MkdirAll(filepath.Join(cacheDir, "some-org", "some-repo"), os.ModePerm)).To(Succeed())
+			})
+
+			it("removes the v from the tag", func() {
+				uri, err := remoteFetcher.Get(remoteBuildpack)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(gitReleaseFetcher.GetCall.Receives.Org).To(Equal("some-org"))
+				Expect(gitReleaseFetcher.GetCall.Receives.Repo).To(Equal("some-repo"))
+
+				Expect(buildpackCache.GetCall.Receives.Key).To(Equal("some-org:some-repo"))
+
+				Expect(gitReleaseFetcher.GetReleaseAssetCall.Receives.Asset).To(Equal(github.ReleaseAsset{
+					URL: "some-url",
+				}))
+
+				Expect(filepath.Join(cacheDir, "some-org", "some-repo", "1.2.3.tgz")).To(BeAnExistingFile())
+				file, err := os.Open(filepath.Join(cacheDir, "some-org", "some-repo", "1.2.3.tgz"))
+				Expect(err).ToNot(HaveOccurred())
+
+				err = vacation.NewArchive(file).Decompress(filepath.Join(cacheDir, "some-org", "some-repo"))
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := os.ReadFile(filepath.Join(cacheDir, "some-org", "some-repo", "some-file"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(Equal("some content"))
+
+				Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
+
+				Expect(uri).To(Equal(filepath.Join(cacheDir, "some-org", "some-repo", "1.2.3.tgz")))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when there is a failure in the gitReleaseFetcher get", func() {
 				it.Before(func() {
