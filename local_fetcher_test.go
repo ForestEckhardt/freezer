@@ -70,13 +70,13 @@ func testLocalFetcher(t *testing.T, context spec.G, it spec.S) {
 				Expect(namer.RandomNameCall.Receives.Name).To(Equal("some-buildpack"))
 
 				Expect(packager.ExecuteCall.Receives.BuildpackDir).To(Equal("path/to/buildpack"))
-				Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-buildpack", "some-buildpack-random-string.tgz")))
+				Expect(packager.ExecuteCall.Receives.Output).To(Equal(filepath.Join(cacheDir, "some-buildpack", "some-buildpack-random-string.cnb")))
 				Expect(packager.ExecuteCall.Receives.Version).To(Equal("some-version"))
 				Expect(packager.ExecuteCall.Receives.Cached).To(BeFalse())
 
 				Expect(buildpackCache.SetCall.CallCount).To(Equal(1))
 
-				Expect(uri).To(Equal(filepath.Join(cacheDir, "some-buildpack", "some-buildpack-random-string.tgz")))
+				Expect(uri).To(Equal(filepath.Join(cacheDir, "some-buildpack", "some-buildpack-random-string.cnb")))
 			})
 		})
 

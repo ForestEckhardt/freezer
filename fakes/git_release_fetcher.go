@@ -9,7 +9,7 @@ import (
 
 type GitReleaseFetcher struct {
 	GetCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Org  string
@@ -22,7 +22,7 @@ type GitReleaseFetcher struct {
 		Stub func(string, string) (github.Release, error)
 	}
 	GetReleaseAssetCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Asset github.ReleaseAsset
@@ -34,7 +34,7 @@ type GitReleaseFetcher struct {
 		Stub func(github.ReleaseAsset) (io.ReadCloser, error)
 	}
 	GetReleaseTarballCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Url string
@@ -48,8 +48,8 @@ type GitReleaseFetcher struct {
 }
 
 func (f *GitReleaseFetcher) Get(param1 string, param2 string) (github.Release, error) {
-	f.GetCall.Lock()
-	defer f.GetCall.Unlock()
+	f.GetCall.mutex.Lock()
+	defer f.GetCall.mutex.Unlock()
 	f.GetCall.CallCount++
 	f.GetCall.Receives.Org = param1
 	f.GetCall.Receives.Repo = param2
@@ -59,8 +59,8 @@ func (f *GitReleaseFetcher) Get(param1 string, param2 string) (github.Release, e
 	return f.GetCall.Returns.Release, f.GetCall.Returns.Error
 }
 func (f *GitReleaseFetcher) GetReleaseAsset(param1 github.ReleaseAsset) (io.ReadCloser, error) {
-	f.GetReleaseAssetCall.Lock()
-	defer f.GetReleaseAssetCall.Unlock()
+	f.GetReleaseAssetCall.mutex.Lock()
+	defer f.GetReleaseAssetCall.mutex.Unlock()
 	f.GetReleaseAssetCall.CallCount++
 	f.GetReleaseAssetCall.Receives.Asset = param1
 	if f.GetReleaseAssetCall.Stub != nil {
@@ -69,8 +69,8 @@ func (f *GitReleaseFetcher) GetReleaseAsset(param1 github.ReleaseAsset) (io.Read
 	return f.GetReleaseAssetCall.Returns.ReadCloser, f.GetReleaseAssetCall.Returns.Error
 }
 func (f *GitReleaseFetcher) GetReleaseTarball(param1 string) (io.ReadCloser, error) {
-	f.GetReleaseTarballCall.Lock()
-	defer f.GetReleaseTarballCall.Unlock()
+	f.GetReleaseTarballCall.mutex.Lock()
+	defer f.GetReleaseTarballCall.mutex.Unlock()
 	f.GetReleaseTarballCall.CallCount++
 	f.GetReleaseTarballCall.Receives.Url = param1
 	if f.GetReleaseTarballCall.Stub != nil {
