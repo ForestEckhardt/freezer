@@ -4,7 +4,7 @@ import "sync"
 
 type Namer struct {
 	RandomNameCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Name string
@@ -18,8 +18,8 @@ type Namer struct {
 }
 
 func (f *Namer) RandomName(param1 string) (string, error) {
-	f.RandomNameCall.Lock()
-	defer f.RandomNameCall.Unlock()
+	f.RandomNameCall.mutex.Lock()
+	defer f.RandomNameCall.mutex.Unlock()
 	f.RandomNameCall.CallCount++
 	f.RandomNameCall.Receives.Name = param1
 	if f.RandomNameCall.Stub != nil {

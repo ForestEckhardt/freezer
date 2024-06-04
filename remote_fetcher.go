@@ -34,20 +34,25 @@ type RemoteFetcher struct {
 	buildpackCache    BuildpackCache
 	gitReleaseFetcher GitReleaseFetcher
 	packager          Packager
-	fileSystem        FileSystem
+	fileSystem        func(dir string, pattern string) (string, error)
 }
 
-func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleaseFetcher, packager Packager, fileSystem FileSystem) RemoteFetcher {
+func NewRemoteFetcher(buildpackCache BuildpackCache, gitReleaseFetcher GitReleaseFetcher, packager Packager) RemoteFetcher {
 	return RemoteFetcher{
 		buildpackCache:    buildpackCache,
 		gitReleaseFetcher: gitReleaseFetcher,
 		packager:          packager,
-		fileSystem:        fileSystem,
+		fileSystem:        os.MkdirTemp,
 	}
 }
 
 func (r RemoteFetcher) WithPackager(packager Packager) RemoteFetcher {
 	r.packager = packager
+	return r
+}
+
+func (r RemoteFetcher) WithFileSystem(fileSystem func(string, string) (string, error)) RemoteFetcher {
+	r.fileSystem = fileSystem
 	return r
 }
 
@@ -97,10 +102,10 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 			}
 		}
 
-		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", tagName))
+		path = filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.cnb", tagName))
 
 		if missingReleaseArtifacts || buildpack.Offline {
-			downloadDir, err := r.fileSystem.TempDir("", buildpack.Repo)
+			downloadDir, err := r.fileSystem("", buildpack.Repo)
 			if err != nil {
 				return "", err
 			}

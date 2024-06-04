@@ -1,8 +1,10 @@
 package freezer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/paketo-buildpacks/packit/v2/pexec"
 )
@@ -13,12 +15,16 @@ type Executable interface {
 }
 
 type PackingTools struct {
-	jam Executable
+	jam        Executable
+	pack       Executable
+	tempOutput func(dir string, pattern string) (string, error)
 }
 
 func NewPackingTools() PackingTools {
 	return PackingTools{
-		jam: pexec.NewExecutable("jam"),
+		jam:        pexec.NewExecutable("jam"),
+		pack:       pexec.NewExecutable("pack"),
+		tempOutput: os.MkdirTemp,
 	}
 }
 
@@ -27,11 +33,27 @@ func (p PackingTools) WithExecutable(executable Executable) PackingTools {
 	return p
 }
 
+func (p PackingTools) WithPack(pack Executable) PackingTools {
+	p.pack = pack
+	return p
+}
+
+func (p PackingTools) WithTempOutput(tempOutput func(string, string) (string, error)) PackingTools {
+	p.tempOutput = tempOutput
+	return p
+}
+
 func (p PackingTools) Execute(buildpackDir, output, version string, cached bool) error {
+	jamOutput, err := p.tempOutput("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(jamOutput)
+
 	args := []string{
 		"pack",
 		"--buildpack", filepath.Join(buildpackDir, "buildpack.toml"),
-		"--output", output,
+		"--output", filepath.Join(jamOutput, fmt.Sprintf("%s.tgz", version)),
 		"--version", version,
 	}
 
@@ -39,7 +61,24 @@ func (p PackingTools) Execute(buildpackDir, output, version string, cached bool)
 		args = append(args, "--offline")
 	}
 
-	return p.jam.Execute(pexec.Execution{
+	err = p.jam.Execute(pexec.Execution{
+		Args:   args,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	})
+	if err != nil {
+		return err
+	}
+
+	args = []string{
+		"buildpack", "package",
+		output,
+		"--path", filepath.Join(jamOutput, fmt.Sprintf("%s.tgz", version)),
+		"--format", "file",
+		"--target", fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+	}
+
+	return p.pack.Execute(pexec.Execution{
 		Args:   args,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,

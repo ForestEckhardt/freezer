@@ -12,7 +12,6 @@ var gitToken string
 func TestFreezer(t *testing.T) {
 	suite := spec.New("freezer", spec.Report(report.Terminal{}))
 	suite("CacheManager", testCacheManager)
-	suite("FileSystem", testFileSystem)
 	suite("LocalFetcher", testLocalFetcher)
 	suite("PackingTools", testPackingTools)
 	suite("RandomName", testRandomName)

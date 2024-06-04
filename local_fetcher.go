@@ -46,7 +46,7 @@ func (l LocalFetcher) Get(buildpack LocalBuildpack) (string, error) {
 		return "", fmt.Errorf("random name generation failed: %w", err)
 	}
 
-	path := filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.tgz", name))
+	path := filepath.Join(buildpackCacheDir, fmt.Sprintf("%s.cnb", name))
 
 	cachedEntry, exist, err := l.buildpackCache.Get(key)
 	if err != nil {
