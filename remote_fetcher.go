@@ -62,7 +62,7 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 		return "", err
 	}
 
-	buildpackCacheDir := filepath.Join(r.buildpackCache.Dir(), buildpack.Org, buildpack.Repo)
+	buildpackCacheDir := filepath.Join(r.buildpackCache.Dir(), buildpack.Org, buildpack.Repo, buildpack.Platform, buildpack.Arch)
 	if buildpack.Offline {
 		buildpackCacheDir = filepath.Join(buildpackCacheDir, "cached")
 	}
@@ -95,8 +95,29 @@ func (r RemoteFetcher) Get(buildpack RemoteBuildpack) (string, error) {
 			if err != nil {
 				return "", err
 			}
-		} else {
+		} else if buildpack.Platform == "linux" && buildpack.Arch == "amd64" && len(release.Assets) == 2 {
+			//This if is for backward compatibility
 			bundle, err = r.gitReleaseFetcher.GetReleaseAsset(release.Assets[0])
+			if err != nil {
+				return "", err
+			}
+		} else {
+			var assetName string
+			if buildpack.Platform == "linux" && buildpack.Arch == "amd64" {
+				assetName = "" + buildpack.Repo + "-" + tagName + ".cnb"
+			} else {
+				assetName = "" + buildpack.Repo + "-" + tagName + "-" + buildpack.Platform + "-" + buildpack.Arch + ".cnb"
+			}
+
+			var downloadAssetIndex int
+			for i, asset := range release.Assets {
+				if asset.Name == assetName {
+					downloadAssetIndex = i
+					break
+				}
+			}
+
+			bundle, err = r.gitReleaseFetcher.GetReleaseAsset(release.Assets[downloadAssetIndex])
 			if err != nil {
 				return "", err
 			}
