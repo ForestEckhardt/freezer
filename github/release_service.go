@@ -13,7 +13,8 @@ type ReleaseService struct {
 }
 
 type ReleaseAsset struct {
-	URL string `json:"url"`
+	URL  string `json:"url"`
+	Name string `json:"name"`
 }
 
 type Release struct {
